@@ -67,20 +67,24 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-4">
-            <Button
-              variant="ghost"
-              className={`
-                ${isScrolled
-                  ? 'text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100'
-                  : 'text-white hover:bg-white/10'
-                }
-              `}
-            >
-              Iniciar Sesión
-            </Button>
-            <Button className="bg-primary-500 hover:bg-primary-600 text-white shadow-md hover:shadow-lg transition-all duration-300">
-              Comenzar Gratis
-            </Button>
+            <Link href="/login">
+              <Button
+                variant="ghost"
+                className={`
+                  ${isScrolled
+                    ? 'text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100'
+                    : 'text-white hover:bg-white/10'
+                  }
+                `}
+              >
+                Iniciar Sesión
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button className="bg-primary-500 hover:bg-primary-600 text-white shadow-md hover:shadow-lg transition-all duration-300">
+                Comenzar Gratis
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -115,19 +119,23 @@ export function Navbar() {
               </Link>
             ))}
             <div className="pt-4 border-t border-neutral-200 space-y-3">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Iniciar Sesión
-              </Button>
-              <Button
-                className="w-full bg-primary-500 hover:bg-primary-600 text-white"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Comenzar Gratis
-              </Button>
+              <Link href="/login">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Iniciar Sesión
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button
+                  className="w-full bg-primary-500 hover:bg-primary-600 text-white"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Comenzar Gratis
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

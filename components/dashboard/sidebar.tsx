@@ -107,10 +107,13 @@ export function Sidebar() {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-destructive hover:text-destructive"
-            onClick={() => {
-              // Clear trainer and reload
+            onClick={async () => {
+              // Clear trainer from store
               useTrainerStore.getState().clearTrainer()
-              window.location.href = '/'
+
+              // Sign out from Supabase
+              const { signOut } = await import('@/lib/supabase/auth')
+              await signOut()
             }}
           >
             <LogOut className="h-4 w-4" />

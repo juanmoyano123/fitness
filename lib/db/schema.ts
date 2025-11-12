@@ -1,38 +1,39 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { pgTable, uuid, varchar, text, timestamp } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
-// Trainers table
-export const trainers = sqliteTable('trainers', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  email: text('email').notNull().unique(),
-  fullName: text('full_name').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .$defaultFn(() => new Date())
+// Trainers table - Now compatible with Supabase auth.users
+export const trainers = pgTable('trainers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  fullName: varchar('full_name', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
     .notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .$defaultFn(() => new Date())
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
     .notNull(),
 })
 
 // Clients table
-export const clients = sqliteTable('clients', {
-  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
-  trainerId: text('trainer_id')
+export const clients = pgTable('clients', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  trainerId: uuid('trainer_id')
     .references(() => trainers.id)
     .notNull(),
-  fullName: text('full_name').notNull(),
-  email: text('email'),
-  phone: text('phone'),
-  status: text('status', { enum: ['active', 'paused', 'inactive'] })
+  fullName: varchar('full_name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 50 }),
+  status: varchar('status', { length: 20 })
+    .$type<'active' | 'paused' | 'inactive'>()
     .default('active')
     .notNull(),
   notes: text('notes'),
-  deletedAt: integer('deleted_at', { mode: 'timestamp' }), // Soft delete
-  createdAt: integer('created_at', { mode: 'timestamp' })
-    .$defaultFn(() => new Date())
+  deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
     .notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
-    .$defaultFn(() => new Date())
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
     .notNull(),
 })
 

@@ -11,6 +11,7 @@ import {
   getClientCount,
 } from '@/lib/db/queries/clients'
 import { ClientFilters } from '@/types/client'
+import { getUser } from '@/lib/supabase/auth'
 
 // Validation schemas
 const createClientSchema = z.object({
@@ -30,11 +31,29 @@ type ActionResult<T = any> = {
   error?: string
 }
 
+// Helper to verify authentication and trainer ownership
+async function verifyAuth(trainerId: string): Promise<ActionResult | null> {
+  const { user, error } = await getUser()
+
+  if (error || !user) {
+    return { success: false, error: 'No autenticado' }
+  }
+
+  if (user.id !== trainerId) {
+    return { success: false, error: 'No autorizado' }
+  }
+
+  return null // No error, auth verified
+}
+
 // Get all clients
 export async function getClientsAction(
   trainerId: string,
   filters?: ClientFilters
 ): Promise<ActionResult> {
+  const authError = await verifyAuth(trainerId)
+  if (authError) return authError
+
   try {
     const clients = await getClients(trainerId, filters)
     return { success: true, data: clients }
@@ -48,6 +67,9 @@ export async function getClientAction(
   clientId: string,
   trainerId: string
 ): Promise<ActionResult> {
+  const authError = await verifyAuth(trainerId)
+  if (authError) return authError
+
   try {
     const client = await getClientById(clientId, trainerId)
     if (!client) {
@@ -64,6 +86,9 @@ export async function createClientAction(
   trainerId: string,
   formData: FormData
 ): Promise<ActionResult> {
+  const authError = await verifyAuth(trainerId)
+  if (authError) return authError
+
   try {
     const rawData = {
       fullName: formData.get('fullName') as string,
@@ -92,6 +117,9 @@ export async function updateClientAction(
   trainerId: string,
   formData: FormData
 ): Promise<ActionResult> {
+  const authError = await verifyAuth(trainerId)
+  if (authError) return authError
+
   try {
     const rawData = {
       fullName: formData.get('fullName') as string,
@@ -124,6 +152,9 @@ export async function deleteClientAction(
   clientId: string,
   trainerId: string
 ): Promise<ActionResult> {
+  const authError = await verifyAuth(trainerId)
+  if (authError) return authError
+
   try {
     const client = await deleteClient(clientId, trainerId)
 
@@ -142,6 +173,9 @@ export async function deleteClientAction(
 export async function getClientCountAction(
   trainerId: string
 ): Promise<ActionResult> {
+  const authError = await verifyAuth(trainerId)
+  if (authError) return authError
+
   try {
     const count = await getClientCount(trainerId)
     return { success: true, data: count }

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import type { Trainer as DBTrainer } from '@/lib/db/schema'
 
+// Simplified trainer type for the store
 export interface Trainer {
   id: string
   email: string
@@ -10,47 +12,29 @@ export interface Trainer {
 
 interface TrainerStore {
   trainer: Trainer | null
-  isInitialized: boolean
-  setTrainer: (trainer: Trainer) => void
+  setTrainer: (trainer: Trainer | DBTrainer) => void
   clearTrainer: () => void
-  initializeTrainer: () => void
-}
-
-// Generate a mock trainer with UUID
-const generateMockTrainer = (): Trainer => {
-  const id = crypto.randomUUID()
-  return {
-    id,
-    email: `trainer-${id.slice(0, 8)}@fitcompass.pro`,
-    fullName: 'Demo Trainer',
-    createdAt: new Date().toISOString(),
-  }
 }
 
 export const useTrainerStore = create<TrainerStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       trainer: null,
-      isInitialized: false,
 
-      setTrainer: (trainer) => set({ trainer, isInitialized: true }),
-
-      clearTrainer: () => set({ trainer: null, isInitialized: true }),
-
-      initializeTrainer: () => {
-        const { trainer, isInitialized } = get()
-
-        // Only initialize once
-        if (isInitialized) return
-
-        // If no trainer exists, create a new one
-        if (!trainer) {
-          const newTrainer = generateMockTrainer()
-          set({ trainer: newTrainer, isInitialized: true })
-        } else {
-          set({ isInitialized: true })
+      setTrainer: (trainer) => {
+        // Convert DBTrainer to store Trainer if needed
+        const storeTrainer: Trainer = {
+          id: trainer.id,
+          email: trainer.email,
+          fullName: trainer.fullName,
+          createdAt: typeof trainer.createdAt === 'string'
+            ? trainer.createdAt
+            : trainer.createdAt.toISOString(),
         }
+        set({ trainer: storeTrainer })
       },
+
+      clearTrainer: () => set({ trainer: null }),
     }),
     {
       name: 'fitcompass-trainer-storage',
