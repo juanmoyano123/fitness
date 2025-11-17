@@ -33,9 +33,18 @@ def create_app():
     CORS(app, origins=os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(','))
 
     # Register blueprints (routes)
-    # TODO: Uncomment when routes are created
-    # from app.routes import health_bp
-    # app.register_blueprint(health_bp)
+    from app.routes import (
+        health_bp,
+        clients_bp,
+        exercises_bp,
+        workouts_bp,
+        assignments_bp
+    )
+    app.register_blueprint(health_bp)
+    app.register_blueprint(clients_bp)
+    app.register_blueprint(exercises_bp)
+    app.register_blueprint(workouts_bp)
+    app.register_blueprint(assignments_bp)
 
     # Create tables (for development only)
     with app.app_context():
