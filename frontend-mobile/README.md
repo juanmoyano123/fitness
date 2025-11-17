@@ -2,6 +2,8 @@
 
 App móvil para clientes de entrenadores personales construida con React Native y Expo.
 
+**FASE 2 COMPLETADA** ✅ - Frontend móvil con datos mock completamente funcional.
+
 ## 🚀 Quick Start
 
 ### Prerrequisitos
@@ -12,15 +14,8 @@ App móvil para clientes de entrenadores personales construida con React Native 
 
 ### Instalación
 
-**NOTA:** Hay un problema con permisos de npm cache. Antes de instalar, ejecuta:
 ```bash
-# Arreglar permisos de npm (requiere password de admin)
-sudo chown -R $(whoami) ~/.npm
-```
-
-Luego:
-```bash
-npm install
+npm install --legacy-peer-deps
 ```
 
 ### Configurar Variables de Entorno
@@ -45,41 +40,123 @@ Luego escanea el QR code con:
 ```
 frontend-mobile/
 ├── src/
-│   ├── components/    # Componentes reutilizables
-│   ├── screens/       # Pantallas de la app
-│   ├── navigation/    # React Navigation setup
-│   ├── types/         # TypeScript types
-│   └── utils/         # Utilidades y helpers
-├── assets/            # Imágenes, fuentes, etc.
-├── App.tsx            # Componente raíz
-└── ...config files
+│   ├── navigation/          # React Navigation setup
+│   │   └── AppNavigator.tsx    # Bottom Tabs + Stack
+│   ├── screens/             # Pantallas principales
+│   │   ├── HomeScreen.tsx
+│   │   ├── WorkoutsScreen.tsx      # F-008: Lista de workouts
+│   │   ├── ProgressScreen.tsx
+│   │   └── WorkoutDetailScreen.tsx # F-009: Detalle y logging
+│   ├── components/          # Componentes reutilizables
+│   │   ├── WorkoutCard.tsx
+│   │   ├── FilterTabs.tsx
+│   │   ├── ExerciseCard.tsx        # Card expandible con logging
+│   │   ├── RestTimer.tsx           # Modal timer con countdown
+│   │   └── WorkoutCompleteModal.tsx
+│   ├── constants/           # Design tokens
+│   │   └── theme.ts            # Colores, tipografía, spacing, etc.
+│   ├── types/               # TypeScript types
+│   │   └── workout.ts
+│   └── lib/                 # Mock data
+│       ├── mock-workouts.ts
+│       └── mock-workout-detail.ts
+├── assets/                  # Imágenes, fuentes, etc.
+├── App.tsx                  # Componente raíz
+└── package.json
 ```
 
 ## 🛠️ Stack Tecnológico
 
-- **Framework:** React Native con Expo
-- **Language:** TypeScript
-- **Navigation:** React Navigation (a instalar)
-- **State Management:** Zustand (a instalar)
-- **Storage:** AsyncStorage (a instalar)
-- **API Client:** Axios (a instalar)
+- **Framework:** React Native 0.81.5 + Expo 54
+- **Language:** TypeScript 5.9.2
+- **Navigation:** React Navigation v7 (Bottom Tabs + Stack)
+- **Date Utils:** date-fns v4.1.0
+- **Haptics:** expo-haptics (feedback táctil)
+- **UI:** Pure React Native components (sin UI library)
 
 ## 📋 Scripts Disponibles
 
 ```bash
-npx expo start       # Iniciar development server
-npx expo start --android  # Iniciar en Android
-npx expo start --ios      # Iniciar en iOS
-npx expo start --web      # Iniciar en web browser
+npx expo start              # Iniciar development server
+npx expo start --android    # Iniciar en Android
+npx expo start --ios        # Iniciar en iOS
+npx expo start --web        # Iniciar en web browser
 ```
 
-## 📦 Próximos Pasos
+## ✅ Features Implementadas (FASE 2)
 
-1. ✅ Setup básico creado
-2. ⏳ Instalar dependencias (resolver problema npm cache)
-3. ⏳ Configurar React Navigation (F-007)
-4. ⏳ Implementar lista de workouts UI (F-008)
-5. ⏳ Implementar detalle workout y logging (F-009)
+### F-007: Setup React Native + Navegación ✅
+- Bottom Tabs navigation (Inicio, Workouts, Progreso)
+- Stack navigation para drill-down screens
+- Pantallas placeholder con design system
+- Design tokens completos basados en fitness-style-guide
+
+### F-008: UI Lista Workouts Cliente ✅
+- Lista de workouts con SectionList (Hoy, Esta Semana, Próximos, Completados)
+- WorkoutCard con thumbnail, duración, ejercicios y estado
+- FilterTabs para filtrar por estado (Todos/Pendientes/En Progreso/Completados)
+- Pull to Refresh funcional
+- Empty State con mensajes contextuales
+- Navegación a detalle de workout
+
+### F-009: UI Detalle Workout y Logging ✅
+- Header con stats dinámico (tiempo, sets completados)
+- Botón "Iniciar/Finalizar Entrenamiento"
+- ExerciseCard expandible con:
+  - GIF demostrativo
+  - Form de logging (reps/peso por set)
+  - Auto-expand del siguiente ejercicio
+- RestTimer modal con:
+  - Countdown visual
+  - Haptic feedback
+  - Pausar/Reanudar/Saltar
+- WorkoutCompleteModal con stats y mensaje motivacional
+- Alert de confirmación al salir sin finalizar
+
+## 🎨 Design System
+
+Basado en el fitness-style-guide del repositorio:
+
+### Colores
+- **Primary:** Earth tones (#37322f, #49423d, #605a57)
+- **Backgrounds:** Neutral whites (#ffffff, #f7f5f3, #fbfaf9)
+- **Accents:** Amber (#f59e0b), Sky (#0ea5e9), Green (#10b981), Purple (#8b5cf6), Rose (#f43f5e)
+
+### Tipografía
+- **Font:** Inter (400, 500, 600, 700)
+- **Scale:** 12px - 48px (9 tamaños)
+
+### Spacing
+- **Base:** 4px grid
+- **Scale:** 4px - 96px (11 valores)
+
+### Border Radius
+- **Variants:** 4px (sm), 8px (md), 10px (lg), 16px (xl), 999px (full)
+
+## 📦 Progreso del Proyecto
+
+### FASE 0: Setup ✅
+- ✅ Setup repos
+- ✅ Demo auto-login
+
+### FASE 1: Frontend Web Dashboard ✅
+- ✅ Layout y navegación
+- ✅ CRUD clientes
+- ✅ Biblioteca ejercicios
+- ✅ Constructor workouts
+- ✅ Dashboard progreso
+
+### FASE 2: App Móvil Frontend ✅
+- ✅ F-007: Setup React Native + Navegación (2d)
+- ✅ F-008: UI Lista Workouts (2.5d)
+- ✅ F-009: UI Detalle Workout y Logging (3d)
+
+### FASE 3: Backend API Core (Próximo)
+- ⏳ Setup Flask + PostgreSQL
+- ⏳ API CRUD clientes
+- ⏳ Integración ExerciseDB
+- ⏳ API workouts
+- ⏳ API logging entrenamientos
 
 ## 🐛 Troubleshooting
 
