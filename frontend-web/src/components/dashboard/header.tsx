@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, Search } from "lucide-react";
+import { Bell, Menu, Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,12 +13,36 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import api from "@/lib/api";
+import { useState, useEffect } from "react";
 
 interface HeaderProps {
   onMenuClick?: () => void;
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const storedUser = api.getStoredUser();
+    setUser(storedUser);
+  }, []);
+
+  const handleLogout = () => {
+    api.logout();
+    router.push("/login");
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
   return (
     <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
       <Button
@@ -64,7 +88,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               <Button variant="ghost" className="relative flex items-center gap-x-2">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary text-primary-foreground">
-                    CT
+                    {user ? getInitials(user.name) : "U"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="hidden lg:flex lg:items-center">
@@ -72,7 +96,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     className="ml-2 text-sm font-semibold leading-6 text-foreground"
                     aria-hidden="true"
                   >
-                    Carlos Trainer
+                    {user?.name || "Usuario"}
                   </span>
                 </span>
               </Button>
@@ -87,7 +111,11 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <Link href="/dashboard/settings">Configuración</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive cursor-pointer"
+                onClick={handleLogout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión
               </DropdownMenuItem>
             </DropdownMenuContent>

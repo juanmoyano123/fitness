@@ -72,8 +72,11 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/dashboard">
-                <Button>Acceder al Dashboard</Button>
+              <Link href="/login">
+                <Button variant="outline">Iniciar Sesión</Button>
+              </Link>
+              <Link href="/register">
+                <Button>Registrarse</Button>
               </Link>
             </div>
           </div>
@@ -93,14 +96,16 @@ export default function Home() {
               con tecnología tier-1.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/dashboard">
+              <Link href="/register">
                 <Button size="lg" className="w-full sm:w-auto">
-                  Comenzar Demo Gratis
+                  Comenzar Gratis
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Ver Video Demo
-              </Button>
+              <Link href="/login">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                  Iniciar Sesión
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -164,8 +169,8 @@ export default function Home() {
               Sin tarjeta de crédito. Explora todas las funcionalidades
               instantáneamente.
             </p>
-            <Link href="/dashboard">
-              <Button size="lg">Acceder al Dashboard Demo</Button>
+            <Link href="/register">
+              <Button size="lg">Crear Cuenta Gratis</Button>
             </Link>
           </div>
         </div>
