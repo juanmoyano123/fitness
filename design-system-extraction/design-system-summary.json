@@ -1,0 +1,22 @@
+{
+  "colorsUnique": {
+    "backgrounds": 24,
+    "texts": 22
+  },
+  "typography": {
+    "totalElements": 46,
+    "uniqueFontSizes": 6
+  },
+  "spacing": {
+    "uniquePaddings": 28,
+    "uniqueMargins": 5
+  },
+  "components": {
+    "detected": 0
+  },
+  "layouts": {
+    "flex": 325,
+    "grid": 2
+  },
+  "zIndexLayers": 6
+}

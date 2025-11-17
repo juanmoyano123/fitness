@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Components - FitTrack Design System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #37322f;
+            --color-secondary: #49423d;
+            --color-tertiary: #605a57;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f7f5f3;
+            --accent-amber: #f59e0b;
+            --accent-green: #10b981;
+            --accent-sky: #0ea5e9;
+            --font-primary: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+            --radius-md: 8px;
+            --radius-lg: 10px;
+            --radius-xl: 16px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --shadow-sm: 0px 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0px 2px 4px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0px 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            padding: 40px;
+            background: var(--bg-secondary);
+            color: var(--color-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-primary);
+            padding: 40px;
+            border-radius: 12px;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .intro {
+            color: var(--color-secondary);
+            margin-bottom: 40px;
+        }
+
+        .component-section {
+            margin-bottom: 48px;
+            padding-bottom: 48px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .component-section:last-child {
+            border-bottom: none;
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .description {
+            color: var(--color-secondary);
+            margin-bottom: 24px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        /* Base Card */
+        .card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            transition: all 200ms ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Workout Card */
+        .workout-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+
+        .workout-image {
+            height: 180px;
+            background: linear-gradient(135deg, #581c87 0%, #8b5cf6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
+        }
+
+        .workout-content {
+            padding: var(--space-5);
+        }
+
+        .workout-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            background: rgba(139, 92, 246, 0.1);
+            color: #8b5cf6;
+        }
+
+        .workout-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .workout-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: var(--color-tertiary);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 200ms ease;
+        }
+
+        .btn:hover {
+            background: #e8e5e3;
+        }
+
+        /* Stat Card */
+        .stat-card {
+            background: var(--bg-secondary);
+            padding: var(--space-5);
+            border-radius: var(--radius-lg);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .stat-icon {
+            font-size: 20px;
+        }
+
+        .stat-trend {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            display: block;
+            margin: 12px 0 4px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--color-tertiary);
+        }
+
+        /* Feature Card */
+        .feature-card {
+            background: var(--bg-secondary);
+            padding: var(--space-6);
+            border-radius: var(--radius-xl);
+            text-align: center;
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 28px;
+        }
+
+        .feature-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .feature-description {
+            color: var(--color-tertiary);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* Program Card */
+        .program-card {
+            background: var(--bg-primary);
+            padding: var(--space-6);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            position: relative;
+        }
+
+        .program-badge {
+            position: absolute;
+            top: -12px;
+            left: 24px;
+            background: var(--accent-amber);
+            color: white;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 999px;
+        }
+
+        .program-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+        }
+
+        .program-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .program-description {
+            color: var(--color-tertiary);
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .program-details {
+            margin-bottom: 20px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: var(--color-tertiary);
+        }
+
+        .detail-value {
+            font-weight: 600;
+        }
+
+        /* Testimonial Card */
+        .testimonial-card {
+            background: var(--bg-secondary);
+            padding: var(--space-6);
+            border-radius: var(--radius-xl);
+        }
+
+        .testimonial-rating {
+            color: var(--accent-amber);
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+
+        .testimonial-text {
+            font-size: 16px;
+            line-height: 1.7;
+            color: var(--color-secondary);
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .author-avatar {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-amber), var(--accent-sky));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .author-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .author-name {
+            font-weight: 600;
+        }
+
+        .author-achievement {
+            font-size: 14px;
+            color: var(--color-tertiary);
+        }
+
+        .code-block {
+            background: #f8f8f8;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            color: var(--color-primary);
+            white-space: pre;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Card Components</h1>
+        <p class="intro">Cards are versatile containers for grouping related information and actions in the FitTrack design system.</p>
+
+        <!-- Workout Cards -->
+        <div class="component-section">
+            <h2>Workout Cards</h2>
+            <p class="description">Used to display workout programs with visual thumbnails, metadata, and action buttons.</p>
+            <div class="card-grid">
+                <div class="workout-card">
+                    <div class="workout-image">💪</div>
+                    <div class="workout-content">
+                        <span class="workout-badge">Strength</span>
+                        <h3 class="workout-title">Build Muscle Mass</h3>
+                        <div class="workout-meta">
+                            <span>⏱ 45 min</span>
+                            <span>📈 Intermediate</span>
+                        </div>
+                        <button class="btn">View Workout</button>
+                    </div>
+                </div>
+            </div>
+            <div class="code-block">
+<code>&lt;div class="workout-card"&gt;
+  &lt;div class="workout-image"&gt;💪&lt;/div&gt;
+  &lt;div class="workout-content"&gt;
+    &lt;span class="workout-badge"&gt;Strength&lt;/span&gt;
+    &lt;h3 class="workout-title"&gt;Build Muscle Mass&lt;/h3&gt;
+    &lt;div class="workout-meta"&gt;
+      &lt;span&gt;⏱ 45 min&lt;/span&gt;
+      &lt;span&gt;📈 Intermediate&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;button class="btn"&gt;View Workout&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code>
+            </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="component-section">
+            <h2>Stat Cards</h2>
+            <p class="description">Display key metrics and performance indicators with icons and trend indicators.</p>
+            <div class="card-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-icon">🔥</span>
+                        <span class="stat-trend">↑ 12%</span>
+                    </div>
+                    <span class="stat-value">2,847</span>
+                    <span class="stat-label">Calories Burned</span>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-icon">⚡</span>
+                        <span class="stat-trend">Best!</span>
+                    </div>
+                    <span class="stat-value">21 days</span>
+                    <span class="stat-label">Workout Streak</span>
+                </div>
+            </div>
+            <div class="code-block">
+<code>&lt;div class="stat-card"&gt;
+  &lt;div class="stat-header"&gt;
+    &lt;span class="stat-icon"&gt;🔥&lt;/span&gt;
+    &lt;span class="stat-trend"&gt;↑ 12%&lt;/span&gt;
+  &lt;/div&gt;
+  &lt;span class="stat-value"&gt;2,847&lt;/span&gt;
+  &lt;span class="stat-label"&gt;Calories Burned&lt;/span&gt;
+&lt;/div&gt;</code>
+            </div>
+        </div>
+
+        <!-- Feature Cards -->
+        <div class="component-section">
+            <h2>Feature Cards</h2>
+            <p class="description">Highlight product features or benefits with centered icons and descriptive text.</p>
+            <div class="card-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">Personalized Plans</h3>
+                    <p class="feature-description">AI-powered workout plans adapted to your goals, fitness level, and schedule.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">Progress Tracking</h3>
+                    <p class="feature-description">Visual charts and metrics to monitor your improvements over time.</p>
+                </div>
+            </div>
+            <div class="code-block">
+<code>&lt;div class="feature-card"&gt;
+  &lt;div class="feature-icon"&gt;🎯&lt;/div&gt;
+  &lt;h3 class="feature-title"&gt;Personalized Plans&lt;/h3&gt;
+  &lt;p class="feature-description"&gt;
+    AI-powered workout plans adapted to your goals.
+  &lt;/p&gt;
+&lt;/div&gt;</code>
+            </div>
+        </div>
+
+        <!-- Program Cards -->
+        <div class="component-section">
+            <h2>Program Cards</h2>
+            <p class="description">Display training programs with detailed information and optional badges.</p>
+            <div class="card-grid">
+                <div class="program-card">
+                    <div class="program-badge">Most Popular</div>
+                    <div class="program-icon">🏆</div>
+                    <h3 class="program-title">12-Week Transformation</h3>
+                    <p class="program-description">Complete body transformation program with progressive overload training.</p>
+                    <div class="program-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Duration</span>
+                            <span class="detail-value">12 weeks</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Workouts/Week</span>
+                            <span class="detail-value">5 days</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Level</span>
+                            <span class="detail-value">Intermediate</span>
+                        </div>
+                    </div>
+                    <button class="btn">Start Program</button>
+                </div>
+            </div>
+            <div class="code-block">
+<code>&lt;div class="program-card"&gt;
+  &lt;div class="program-badge"&gt;Most Popular&lt;/div&gt;
+  &lt;div class="program-icon"&gt;🏆&lt;/div&gt;
+  &lt;h3 class="program-title"&gt;12-Week Transformation&lt;/h3&gt;
+  &lt;p class="program-description"&gt;
+    Complete body transformation program.
+  &lt;/p&gt;
+  &lt;div class="program-details"&gt;
+    &lt;div class="detail-item"&gt;
+      &lt;span class="detail-label"&gt;Duration&lt;/span&gt;
+      &lt;span class="detail-value"&gt;12 weeks&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;button class="btn"&gt;Start Program&lt;/button&gt;
+&lt;/div&gt;</code>
+            </div>
+        </div>
+
+        <!-- Testimonial Cards -->
+        <div class="component-section">
+            <h2>Testimonial Cards</h2>
+            <p class="description">Display user testimonials with ratings, quotes, and author information.</p>
+            <div class="card-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-rating">★★★★★</div>
+                    <p class="testimonial-text">
+                        "FitTrack completely changed my approach to fitness. The personalized plans kept me motivated!"
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">SJ</div>
+                        <div class="author-info">
+                            <span class="author-name">Sarah Johnson</span>
+                            <span class="author-achievement">Lost 30 lbs</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="code-block">
+<code>&lt;div class="testimonial-card"&gt;
+  &lt;div class="testimonial-rating"&gt;★★★★★&lt;/div&gt;
+  &lt;p class="testimonial-text"&gt;
+    "FitTrack completely changed my approach..."
+  &lt;/p&gt;
+  &lt;div class="testimonial-author"&gt;
+    &lt;div class="author-avatar"&gt;SJ&lt;/div&gt;
+    &lt;div class="author-info"&gt;
+      &lt;span class="author-name"&gt;Sarah Johnson&lt;/span&gt;
+      &lt;span class="author-achievement"&gt;Lost 30 lbs&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code>
+            </div>
+        </div>
+
+        <!-- Usage Guidelines -->
+        <div class="component-section">
+            <h2>Usage Guidelines</h2>
+            <p class="description"><strong>Workout Cards:</strong> Use for displaying exercise programs, individual workouts, or fitness challenges.</p>
+            <p class="description"><strong>Stat Cards:</strong> Use for dashboard metrics, progress indicators, and key performance numbers.</p>
+            <p class="description"><strong>Feature Cards:</strong> Use for landing pages to highlight product benefits and features.</p>
+            <p class="description"><strong>Program Cards:</strong> Use for structured training programs with detailed specifications.</p>
+            <p class="description"><strong>Testimonial Cards:</strong> Use for social proof and user success stories.</p>
+        </div>
+    </div>
+</body>
+</html>

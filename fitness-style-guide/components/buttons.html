@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Components - FitTrack Design System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #37322f;
+            --color-secondary: #49423d;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f7f5f3;
+            --accent-amber: #f59e0b;
+            --font-primary: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+            --radius-md: 8px;
+            --radius-lg: 10px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-6: 24px;
+            --shadow-md: 0px 2px 4px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            padding: 40px;
+            background: var(--bg-secondary);
+            color: var(--color-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--bg-primary);
+            padding: 40px;
+            border-radius: 12px;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .intro {
+            color: var(--color-secondary);
+            margin-bottom: 40px;
+        }
+
+        .component-section {
+            margin-bottom: 48px;
+            padding-bottom: 48px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .component-section:last-child {
+            border-bottom: none;
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .description {
+            color: var(--color-secondary);
+            margin-bottom: 24px;
+        }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .component-item {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .component-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-secondary);
+        }
+
+        /* Button Base */
+        .btn {
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: all 200ms ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            font-family: var(--font-primary);
+        }
+
+        /* Button Variants */
+        .btn-primary {
+            background: var(--color-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            background: #322d2b;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--color-primary);
+        }
+
+        .btn-secondary:hover {
+            background: #e8e5e3;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--color-primary);
+            border: 1px solid var(--color-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--color-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-accent {
+            background: var(--accent-amber);
+            color: white;
+        }
+
+        .btn-accent:hover {
+            background: #dc8b08;
+        }
+
+        /* Button Sizes */
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-medium {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-large {
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: var(--radius-lg);
+        }
+
+        .btn-xl {
+            padding: 16px 32px;
+            font-size: 18px;
+            border-radius: var(--radius-lg);
+        }
+
+        /* Button States */
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        /* Icon Buttons */
+        .btn-icon {
+            padding: 8px;
+            width: 36px;
+            height: 36px;
+        }
+
+        .btn-icon-large {
+            padding: 12px;
+            width: 48px;
+            height: 48px;
+        }
+
+        /* Code Display */
+        .code-block {
+            background: #f8f8f8;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            color: var(--color-primary);
+        }
+
+        .usage-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+        }
+
+        .usage-table th,
+        .usage-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .usage-table th {
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .usage-table td {
+            color: var(--color-secondary);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Button Components</h1>
+        <p class="intro">A comprehensive set of button styles for the FitTrack design system. All buttons use the Inter font family and follow the 8px spacing system.</p>
+
+        <!-- Primary Buttons -->
+        <div class="component-section">
+            <h2>Primary Buttons</h2>
+            <p class="description">Used for primary actions like "Start Workout", "Save Progress", etc.</p>
+            <div class="component-grid">
+                <div class="component-item">
+                    <span class="component-label">Small</span>
+                    <button class="btn btn-primary btn-small">Start Workout</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Medium (Default)</span>
+                    <button class="btn btn-primary btn-medium">Start Workout</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Large</span>
+                    <button class="btn btn-primary btn-large">Start Workout</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Extra Large</span>
+                    <button class="btn btn-primary btn-xl">Start Workout</button>
+                </div>
+            </div>
+            <div class="code-block">
+                <code>&lt;button class="btn btn-primary btn-medium"&gt;Start Workout&lt;/button&gt;</code>
+            </div>
+        </div>
+
+        <!-- Secondary Buttons -->
+        <div class="component-section">
+            <h2>Secondary Buttons</h2>
+            <p class="description">Used for secondary actions that are less prominent than primary actions.</p>
+            <div class="component-grid">
+                <div class="component-item">
+                    <span class="component-label">Small</span>
+                    <button class="btn btn-secondary btn-small">View Details</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Medium (Default)</span>
+                    <button class="btn btn-secondary btn-medium">View Details</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Large</span>
+                    <button class="btn btn-secondary btn-large">View Details</button>
+                </div>
+            </div>
+            <div class="code-block">
+                <code>&lt;button class="btn btn-secondary btn-medium"&gt;View Details&lt;/button&gt;</code>
+            </div>
+        </div>
+
+        <!-- Outline Buttons -->
+        <div class="component-section">
+            <h2>Outline Buttons</h2>
+            <p class="description">Used for tertiary actions or when you need a lighter visual weight.</p>
+            <div class="component-grid">
+                <div class="component-item">
+                    <span class="component-label">Small</span>
+                    <button class="btn btn-outline btn-small">Log In</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Medium (Default)</span>
+                    <button class="btn btn-outline btn-medium">Log In</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Large</span>
+                    <button class="btn btn-outline btn-large">Log In</button>
+                </div>
+            </div>
+            <div class="code-block">
+                <code>&lt;button class="btn btn-outline btn-medium"&gt;Log In&lt;/button&gt;</code>
+            </div>
+        </div>
+
+        <!-- Accent Buttons -->
+        <div class="component-section">
+            <h2>Accent Buttons</h2>
+            <p class="description">Used for special actions that need high visibility (achievements, rewards, etc.)</p>
+            <div class="component-grid">
+                <div class="component-item">
+                    <span class="component-label">Small</span>
+                    <button class="btn btn-accent btn-small">Claim Reward</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Medium (Default)</span>
+                    <button class="btn btn-accent btn-medium">Claim Reward</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Large</span>
+                    <button class="btn btn-accent btn-large">Claim Reward</button>
+                </div>
+            </div>
+            <div class="code-block">
+                <code>&lt;button class="btn btn-accent btn-medium"&gt;Claim Reward&lt;/button&gt;</code>
+            </div>
+        </div>
+
+        <!-- Full Width Buttons -->
+        <div class="component-section">
+            <h2>Full Width Buttons</h2>
+            <p class="description">Used in cards or mobile layouts where the button should span the full container width.</p>
+            <div style="max-width: 400px;">
+                <div class="component-item">
+                    <span class="component-label">Primary Full Width</span>
+                    <button class="btn btn-primary btn-medium btn-full">Start Free Trial</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Secondary Full Width</span>
+                    <button class="btn btn-secondary btn-medium btn-full">Learn More</button>
+                </div>
+            </div>
+            <div class="code-block">
+                <code>&lt;button class="btn btn-primary btn-medium btn-full"&gt;Start Free Trial&lt;/button&gt;</code>
+            </div>
+        </div>
+
+        <!-- Icon Buttons -->
+        <div class="component-section">
+            <h2>Icon Buttons</h2>
+            <p class="description">Square buttons for icon-only actions.</p>
+            <div class="component-grid">
+                <div class="component-item">
+                    <span class="component-label">Default Size</span>
+                    <button class="btn btn-primary btn-icon">♥</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Large Size</span>
+                    <button class="btn btn-primary btn-icon-large">♥</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Outline</span>
+                    <button class="btn btn-outline btn-icon">⚙</button>
+                </div>
+            </div>
+            <div class="code-block">
+                <code>&lt;button class="btn btn-primary btn-icon"&gt;♥&lt;/button&gt;</code>
+            </div>
+        </div>
+
+        <!-- Button States -->
+        <div class="component-section">
+            <h2>Button States</h2>
+            <p class="description">Various states for user feedback.</p>
+            <div class="component-grid">
+                <div class="component-item">
+                    <span class="component-label">Normal</span>
+                    <button class="btn btn-primary btn-medium">Normal State</button>
+                </div>
+                <div class="component-item">
+                    <span class="component-label">Disabled</span>
+                    <button class="btn btn-primary btn-medium" disabled>Disabled State</button>
+                </div>
+            </div>
+            <div class="code-block">
+                <code>&lt;button class="btn btn-primary btn-medium" disabled&gt;Disabled State&lt;/button&gt;</code>
+            </div>
+        </div>
+
+        <!-- Usage Guidelines -->
+        <div class="component-section">
+            <h2>Usage Guidelines</h2>
+            <table class="usage-table">
+                <thead>
+                    <tr>
+                        <th>Button Type</th>
+                        <th>When to Use</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Primary</td>
+                        <td>Main call-to-action on a page or section</td>
+                        <td>"Start Workout", "Save Progress"</td>
+                    </tr>
+                    <tr>
+                        <td>Secondary</td>
+                        <td>Supporting actions of medium importance</td>
+                        <td>"View Details", "Edit Program"</td>
+                    </tr>
+                    <tr>
+                        <td>Outline</td>
+                        <td>Tertiary actions or navigation</td>
+                        <td>"Cancel", "Log In"</td>
+                    </tr>
+                    <tr>
+                        <td>Accent</td>
+                        <td>Special promotional or achievement actions</td>
+                        <td>"Claim Reward", "Upgrade Now"</td>
+                    </tr>
+                    <tr>
+                        <td>Full Width</td>
+                        <td>Mobile layouts or card-based designs</td>
+                        <td>"Continue", "Next Step"</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- CSS Variables -->
+        <div class="component-section">
+            <h2>CSS Variables</h2>
+            <p class="description">Design tokens used in button components:</p>
+            <div class="code-block">
+<code>--color-primary: #37322f;
+--bg-primary: #ffffff;
+--bg-secondary: #f7f5f3;
+--accent-amber: #f59e0b;
+--radius-md: 8px;
+--radius-lg: 10px;
+--space-2: 8px;
+--space-4: 16px;
+--shadow-md: 0px 2px 4px rgba(0, 0, 0, 0.08);</code>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
