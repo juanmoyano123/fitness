@@ -38,13 +38,15 @@ def create_app():
         clients_bp,
         exercises_bp,
         workouts_bp,
-        assignments_bp
+        assignments_bp,
+        analytics_bp
     )
     app.register_blueprint(health_bp)
     app.register_blueprint(clients_bp)
     app.register_blueprint(exercises_bp)
     app.register_blueprint(workouts_bp)
     app.register_blueprint(assignments_bp)
+    app.register_blueprint(analytics_bp)
 
     # Create tables (for development only)
     with app.app_context():
