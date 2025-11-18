@@ -1,0 +1,35 @@
+services:
+  # Backend API Service
+  - type: web
+    name: fitcompass-api
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fitcompass-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: https://app.fitcompasspro.com,https://fitcompass-web.vercel.app
+      - key: RAPIDAPI_KEY
+        sync: false  # Debe ser configurado manualmente en Render Dashboard
+
+databases:
+  # PostgreSQL Database (Neon alternative on Render)
+  - name: fitcompass-db
+    databaseName: fitcompass_prod
+    user: fitcompass_user
+    plan: free
+    region: oregon
