@@ -23,7 +23,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
-  WorkoutDetail: { workoutId: string };
+  WorkoutDetail: { assignmentId: string };
 };
 
 export type AuthStackParamList = {

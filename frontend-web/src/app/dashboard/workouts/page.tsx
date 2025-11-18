@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  MOCK_EXERCISES,
-  MOCK_CLIENTS,
-  type Exercise,
-  type WorkoutExercise,
-} from "@/lib/mock-data";
+  fetchExercises,
+  fetchClients,
+  createWorkout,
+  assignWorkout,
+  type Exercise as APIExercise,
+  type Client as APIClient,
+  type WorkoutExercise as APIWorkoutExercise,
+  type CreateWorkoutInput,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,34 +31,66 @@ import {
   Search,
   Check,
   Dumbbell,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 
-interface WorkoutFormExercise extends WorkoutExercise {
-  exercise?: Exercise;
+interface WorkoutFormExercise {
+  exerciseId: string;
+  sets: number;
+  reps: string;
+  restSeconds: number;
+  notes?: string;
+  exercise?: APIExercise;
 }
 
 export default function WorkoutsPage() {
+  const [exercises, setExercises] = useState<APIExercise[]>([]);
+  const [clients, setClients] = useState<APIClient[]>([]);
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
   const [workoutCategory, setWorkoutCategory] = useState<string>("strength");
   const [workoutDifficulty, setWorkoutDifficulty] = useState<string>("intermediate");
-  const [selectedExercises, setSelectedExercises] = useState<WorkoutFormExercise[]>(
-    []
-  );
+  const [selectedExercises, setSelectedExercises] = useState<WorkoutFormExercise[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredExercises = MOCK_EXERCISES.filter((exercise) =>
-    exercise.nameEs.toLowerCase().includes(searchQuery.toLowerCase())
+  // Load exercises and clients on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const [exercisesData, clientsData] = await Promise.all([
+        fetchExercises({ limit: 100 }),
+        fetchClients(),
+      ]);
+      setExercises(exercisesData);
+      setClients(clientsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar datos");
+      console.error("Error loading data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredExercises = exercises.filter((exercise) =>
+    exercise.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const addExercise = (exercise: Exercise) => {
+  const addExercise = (exercise: APIExercise) => {
     const newExercise: WorkoutFormExercise = {
       exerciseId: exercise.id,
       sets: 3,
-      reps: 10,
-      weight: 0,
-      rest: 90,
+      reps: "10",
+      restSeconds: 90,
       exercise,
     };
     setSelectedExercises([...selectedExercises, newExercise]);
@@ -70,7 +106,12 @@ export default function WorkoutsPage() {
     value: number | string
   ) => {
     const updated = [...selectedExercises];
-    updated[index] = { ...updated[index], [field]: value };
+    // Convert to appropriate type
+    if (field === 'sets' || field === 'restSeconds') {
+      updated[index] = { ...updated[index], [field]: typeof value === 'string' ? parseInt(value) || 0 : value };
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
     setSelectedExercises(updated);
   };
 
@@ -96,36 +137,100 @@ export default function WorkoutsPage() {
     );
   };
 
-  const handleSaveWorkout = () => {
+  const handleSaveWorkout = async () => {
     if (!workoutName || selectedExercises.length === 0) {
-      alert("Por favor completa el nombre del workout y agrega al menos un ejercicio");
+      setError("Por favor completa el nombre del workout y agrega al menos un ejercicio");
       return;
     }
 
-    alert(
-      `Workout "${workoutName}" creado con ${selectedExercises.length} ejercicios y asignado a ${selectedClients.length} clientes. (Demo mode - no se guardará)`
-    );
+    try {
+      setIsSubmitting(true);
+      setError(null);
 
-    // Reset form
-    setWorkoutName("");
-    setWorkoutDescription("");
-    setSelectedExercises([]);
-    setSelectedClients([]);
+      // Prepare workout data
+      const workoutData: CreateWorkoutInput = {
+        name: workoutName,
+        description: workoutDescription || undefined,
+        category: workoutCategory || undefined,
+        difficulty: workoutDifficulty || undefined,
+        durationMinutes: Math.round(estimatedDuration) || undefined,
+        exercises: selectedExercises.map(ex => ({
+          exerciseId: ex.exerciseId,
+          sets: ex.sets,
+          reps: ex.reps,
+          restSeconds: ex.restSeconds,
+          notes: ex.notes,
+        })),
+      };
+
+      // Create workout
+      const newWorkout = await createWorkout(workoutData);
+
+      // Assign to selected clients if any
+      if (selectedClients.length > 0) {
+        await assignWorkout(newWorkout.id, {
+          clientIds: selectedClients,
+        });
+      }
+
+      alert(
+        `¡Workout "${workoutName}" creado exitosamente!${
+          selectedClients.length > 0
+            ? ` Asignado a ${selectedClients.length} cliente(s).`
+            : ""
+        }`
+      );
+
+      // Reset form
+      setWorkoutName("");
+      setWorkoutDescription("");
+      setSelectedExercises([]);
+      setSelectedClients([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar workout");
+      console.error("Error saving workout:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const estimatedDuration = selectedExercises.reduce((total, ex) => {
-    const exerciseTime = ex.sets * (ex.reps * 3 + ex.rest); // ~3 seg por rep
+    const repsNum = parseInt(ex.reps) || 10;
+    const exerciseTime = ex.sets * (repsNum * 3 + ex.restSeconds); // ~3 seg por rep
     return total + exerciseTime / 60; // convert to minutes
   }, 0);
 
   return (
     <div className="space-y-6">
+      {/* Error message */}
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg flex items-center gap-2">
+          <AlertCircle className="h-5 w-5" />
+          <p className="text-sm font-medium">{error}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setError(null)}
+            className="ml-auto"
+          >
+            Cerrar
+          </Button>
+        </div>
+      )}
+
       <div>
         <h1 className="text-3xl font-bold text-foreground">Crear Workout</h1>
         <p className="mt-2 text-muted-foreground">
           Construye workouts personalizados arrastrando ejercicios
         </p>
       </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+          <p className="ml-4 text-lg text-muted-foreground">Cargando datos...</p>
+        </div>
+      ) : (
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column - Exercise Library */}
@@ -153,11 +258,11 @@ export default function WorkoutsPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">
-                          {exercise.nameEs}
+                        <p className="font-medium text-sm truncate capitalize">
+                          {exercise.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {exercise.muscleGroup}
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {exercise.bodyPart} - {exercise.target}
                         </p>
                       </div>
                       <Button size="icon" variant="ghost" className="h-8 w-8">
@@ -281,11 +386,11 @@ export default function WorkoutsPage() {
                         <div className="flex-1 space-y-3">
                           <div className="flex items-start justify-between">
                             <div>
-                              <h4 className="font-medium">
-                                {index + 1}. {item.exercise?.nameEs}
+                              <h4 className="font-medium capitalize">
+                                {index + 1}. {item.exercise?.name}
                               </h4>
-                              <p className="text-sm text-muted-foreground">
-                                {item.exercise?.muscleGroup}
+                              <p className="text-sm text-muted-foreground capitalize">
+                                {item.exercise?.bodyPart} - {item.exercise?.target}
                               </p>
                             </div>
                             <Button
@@ -297,7 +402,7 @@ export default function WorkoutsPage() {
                             </Button>
                           </div>
 
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-3 gap-2">
                             <div>
                               <Label className="text-xs">Series</Label>
                               <Input
@@ -317,32 +422,16 @@ export default function WorkoutsPage() {
                             <div>
                               <Label className="text-xs">Reps</Label>
                               <Input
-                                type="number"
+                                type="text"
                                 value={item.reps}
                                 onChange={(e) =>
                                   updateExercise(
                                     index,
                                     "reps",
-                                    parseInt(e.target.value) || 0
+                                    e.target.value
                                   )
                                 }
-                                min="1"
-                                className="h-8"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Peso (kg)</Label>
-                              <Input
-                                type="number"
-                                value={item.weight}
-                                onChange={(e) =>
-                                  updateExercise(
-                                    index,
-                                    "weight",
-                                    parseInt(e.target.value) || 0
-                                  )
-                                }
-                                min="0"
+                                placeholder="10-12"
                                 className="h-8"
                               />
                             </div>
@@ -350,11 +439,11 @@ export default function WorkoutsPage() {
                               <Label className="text-xs">Descanso (s)</Label>
                               <Input
                                 type="number"
-                                value={item.rest}
+                                value={item.restSeconds}
                                 onChange={(e) =>
                                   updateExercise(
                                     index,
-                                    "rest",
+                                    "restSeconds",
                                     parseInt(e.target.value) || 0
                                   )
                                 }
@@ -379,7 +468,7 @@ export default function WorkoutsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-2 sm:grid-cols-2">
-                {MOCK_CLIENTS.filter((c) => c.status === "active").map(
+                {clients.filter((c) => c.status === "active").map(
                   (client) => (
                     <div
                       key={client.id}
@@ -404,13 +493,35 @@ export default function WorkoutsPage() {
           </Card>
 
           <div className="flex gap-3 justify-end">
-            <Button variant="outline">Cancelar</Button>
-            <Button onClick={handleSaveWorkout}>
-              Guardar y Asignar Workout
+            <Button
+              variant="outline"
+              onClick={() => {
+                setWorkoutName("");
+                setWorkoutDescription("");
+                setSelectedExercises([]);
+                setSelectedClients([]);
+              }}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveWorkout}
+              disabled={isSubmitting || !workoutName || selectedExercises.length === 0}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Guardar y Asignar Workout"
+              )}
             </Button>
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
