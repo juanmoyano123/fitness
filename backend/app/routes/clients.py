@@ -1,179 +1,323 @@
 """
-Client routes - F-011
+Client Management Routes - CRUD operations for trainer's clients
 """
 from flask import Blueprint, request, jsonify
-from app import db
-from app.models import Client, WorkoutAssignment
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
-import uuid
+from app import db
+from app.models import Client, Trainer
 
 clients_bp = Blueprint('clients', __name__, url_prefix='/api/clients')
 
 
+def require_trainer():
+    """Helper to verify user is a trainer"""
+    claims = get_jwt()
+    if claims.get('type') != 'trainer':
+        return jsonify({
+            'success': False,
+            'error': 'Trainer access required'
+        }), 403
+    return None
+
+
 @clients_bp.route('', methods=['GET'])
-def list_clients():
-    """List all clients for the authenticated trainer"""
-    # TODO: Add JWT authentication - for now using hardcoded trainer_id
-    trainer_id = request.headers.get('X-Trainer-Id', 'trainer-demo-1')
+@jwt_required()
+def get_clients():
+    """
+    Get all clients for the authenticated trainer
 
-    clients = Client.query.filter_by(trainer_id=trainer_id).all()
+    Query params:
+    - active: true/false (filter by is_active status)
+    """
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    # Calculate adherence and stats for each client
-    result = []
-    for client in clients:
-        # Get assignments for last 30 days
-        assignments = client.assignments.all()
-        total_assigned = len(assignments)
-        total_completed = sum(1 for a in assignments if a.status == 'completed')
+    try:
+        trainer_id = get_jwt_identity()
+        query = Client.query.filter_by(trainer_id=trainer_id)
 
-        adherence = (total_completed / total_assigned * 100) if total_assigned > 0 else 0
+        # Filter by active status if specified
+        active_filter = request.args.get('active')
+        if active_filter is not None:
+            is_active = active_filter.lower() == 'true'
+            query = query.filter_by(is_active=is_active)
 
-        # Get last activity
-        last_completed = client.assignments.filter_by(status='completed').order_by(
-            WorkoutAssignment.completed_at.desc()
-        ).first()
+        clients = query.all()
 
-        last_activity = "Nunca"
-        if last_completed and last_completed.completed_at:
-            delta = datetime.utcnow() - last_completed.completed_at
-            if delta.days == 0:
-                last_activity = "Hoy"
-            elif delta.days == 1:
-                last_activity = "Hace 1 día"
-            else:
-                last_activity = f"Hace {delta.days} días"
+        return jsonify({
+            'success': True,
+            'data': [client.to_dict(include_stats=True) for client in clients]
+        }), 200
 
-        result.append({
-            'id': client.id,
-            'name': client.name,
-            'email': client.email,
-            'gender': client.gender,
-            'age': client.age,
-            'goals': client.goals,
-            'avatar': client.avatar,
-            'adherence': round(adherence, 1),
-            'lastActivity': last_activity,
-            'status': client.status,
-            'createdAt': client.created_at.isoformat(),
-            'workoutsCompleted': total_completed,
-            'workoutsAssigned': total_assigned
-        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get clients: {str(e)}'
+        }), 500
 
-    return jsonify(result), 200
+
+@clients_bp.route('/<int:client_id>', methods=['GET'])
+@jwt_required()
+def get_client(client_id):
+    """Get a specific client by ID"""
+    error_response = require_trainer()
+    if error_response:
+        return error_response
+
+    try:
+        trainer_id = get_jwt_identity()
+        client = Client.query.filter_by(id=client_id, trainer_id=trainer_id).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'error': 'Client not found'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'data': client.to_dict(include_stats=True)
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get client: {str(e)}'
+        }), 500
 
 
 @clients_bp.route('', methods=['POST'])
+@jwt_required()
 def create_client():
-    """Create a new client"""
-    trainer_id = request.headers.get('X-Trainer-Id', 'trainer-demo-1')
-    data = request.get_json()
+    """
+    Create a new client
 
-    # Validation
-    if not data.get('name') or not data.get('email'):
-        return jsonify({'error': 'Name and email are required'}), 400
+    Request body:
+    {
+        "email": "client@example.com",
+        "name": "Jane Doe",
+        "phone": "+1234567890" (optional),
+        "notes": "Client notes" (optional)
+    }
+    """
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    # Create client
-    client = Client(
-        id=f"client-{uuid.uuid4().hex[:8]}",
-        trainer_id=trainer_id,
-        name=data['name'],
-        email=data['email'],
-        gender=data.get('gender'),
-        age=data.get('age'),
-        goals=data.get('goals'),
-        avatar=data.get('avatar'),
-        status='active'
-    )
+    try:
+        trainer_id = get_jwt_identity()
+        data = request.get_json()
 
-    db.session.add(client)
-    db.session.commit()
+        if not data or not data.get('email') or not data.get('name'):
+            return jsonify({
+                'success': False,
+                'error': 'Email and name are required'
+            }), 400
 
-    return jsonify({
-        'id': client.id,
-        'name': client.name,
-        'email': client.email,
-        'gender': client.gender,
-        'age': client.age,
-        'goals': client.goals,
-        'avatar': client.avatar,
-        'adherence': 0,
-        'lastActivity': 'Nunca',
-        'status': client.status,
-        'createdAt': client.created_at.isoformat(),
-        'workoutsCompleted': 0,
-        'workoutsAssigned': 0
-    }), 201
+        email = data['email'].lower().strip()
+        name = data['name'].strip()
 
+        # Check if client email already exists
+        existing_client = Client.query.filter_by(email=email).first()
+        if existing_client:
+            return jsonify({
+                'success': False,
+                'error': 'Client with this email already exists'
+            }), 409
 
-@clients_bp.route('/<client_id>', methods=['GET'])
-def get_client(client_id):
-    """Get client details"""
-    client = Client.query.get_or_404(client_id)
+        # Create new client (compatible with FASE 1 frontend)
+        client = Client(
+            email=email,
+            name=name,
+            trainer_id=trainer_id,
+            phone=data.get('phone'),
+            notes=data.get('notes'),
+            is_active=True,
+            gender=data.get('gender'),  # FASE 1 compatibility
+            age=data.get('age'),  # FASE 1 compatibility
+            goals=data.get('goals'),  # FASE 1 compatibility
+            avatar_url=data.get('avatar') or data.get('avatar_url')  # Accept both field names
+        )
 
-    assignments = client.assignments.all()
-    total_assigned = len(assignments)
-    total_completed = sum(1 for a in assignments if a.status == 'completed')
-    adherence = (total_completed / total_assigned * 100) if total_assigned > 0 else 0
+        db.session.add(client)
+        db.session.commit()
 
-    return jsonify({
-        'id': client.id,
-        'name': client.name,
-        'email': client.email,
-        'gender': client.gender,
-        'age': client.age,
-        'goals': client.goals,
-        'avatar': client.avatar,
-        'adherence': round(adherence, 1),
-        'status': client.status,
-        'createdAt': client.created_at.isoformat(),
-        'workoutsCompleted': total_completed,
-        'workoutsAssigned': total_assigned
-    }), 200
+        return jsonify({
+            'success': True,
+            'message': 'Client created successfully',
+            'data': client.to_dict()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to create client: {str(e)}'
+        }), 500
 
 
-@clients_bp.route('/<client_id>', methods=['PUT'])
+@clients_bp.route('/<int:client_id>', methods=['PUT'])
+@jwt_required()
 def update_client(client_id):
-    """Update client"""
-    client = Client.query.get_or_404(client_id)
-    data = request.get_json()
+    """
+    Update a client
 
-    # Update fields
-    if 'name' in data:
-        client.name = data['name']
-    if 'email' in data:
-        client.email = data['email']
-    if 'gender' in data:
-        client.gender = data['gender']
-    if 'age' in data:
-        client.age = data['age']
-    if 'goals' in data:
-        client.goals = data['goals']
-    if 'avatar' in data:
-        client.avatar = data['avatar']
-    if 'status' in data:
-        client.status = data['status']
+    Request body:
+    {
+        "name": "Updated Name" (optional),
+        "phone": "+1234567890" (optional),
+        "notes": "Updated notes" (optional),
+        "is_active": true/false (optional)
+    }
+    """
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    client.updated_at = datetime.utcnow()
-    db.session.commit()
+    try:
+        trainer_id = get_jwt_identity()
+        client = Client.query.filter_by(id=client_id, trainer_id=trainer_id).first()
 
-    return jsonify({
-        'id': client.id,
-        'name': client.name,
-        'email': client.email,
-        'gender': client.gender,
-        'age': client.age,
-        'goals': client.goals,
-        'avatar': client.avatar,
-        'status': client.status,
-        'updatedAt': client.updated_at.isoformat()
-    }), 200
+        if not client:
+            return jsonify({
+                'success': False,
+                'error': 'Client not found'
+            }), 404
+
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        # Update fields (compatible with FASE 1 frontend)
+        if 'name' in data:
+            client.name = data['name'].strip()
+        if 'phone' in data:
+            client.phone = data['phone']
+        if 'notes' in data:
+            client.notes = data['notes']
+        if 'is_active' in data:
+            client.is_active = data['is_active']
+        if 'gender' in data:
+            client.gender = data['gender']
+        if 'age' in data:
+            client.age = data['age']
+        if 'goals' in data:
+            client.goals = data['goals']
+        if 'avatar' in data or 'avatar_url' in data:
+            client.avatar_url = data.get('avatar') or data.get('avatar_url')
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Client updated successfully',
+            'data': client.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update client: {str(e)}'
+        }), 500
 
 
-@clients_bp.route('/<client_id>', methods=['DELETE'])
+@clients_bp.route('/<int:client_id>', methods=['DELETE'])
+@jwt_required()
 def delete_client(client_id):
-    """Delete client"""
-    client = Client.query.get_or_404(client_id)
-    db.session.delete(client)
-    db.session.commit()
+    """Delete a client"""
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    return jsonify({'message': 'Client deleted successfully'}), 200
+    try:
+        trainer_id = get_jwt_identity()
+        client = Client.query.filter_by(id=client_id, trainer_id=trainer_id).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'error': 'Client not found'
+            }), 404
+
+        db.session.delete(client)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Client deleted successfully'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to delete client: {str(e)}'
+        }), 500
+
+
+@clients_bp.route('/<int:client_id>/invite', methods=['POST'])
+@jwt_required()
+def invite_client(client_id):
+    """
+    Send invitation email to a client
+
+    Request body: {} (empty, client must already exist)
+    """
+    error_response = require_trainer()
+    if error_response:
+        return error_response
+
+    try:
+        from flask_jwt_extended import create_access_token
+        from datetime import timedelta
+        import os
+
+        trainer_id = get_jwt_identity()
+        trainer = Trainer.query.get(trainer_id)
+        client = Client.query.filter_by(id=client_id, trainer_id=trainer_id).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'error': 'Client not found'
+            }), 404
+
+        # Generate invite token (7 days expiry)
+        invite_token = create_access_token(
+            identity=client.id,
+            expires_delta=timedelta(days=7),
+            additional_claims={'type': 'invite', 'client_id': client.id, 'trainer_id': trainer_id}
+        )
+
+        # Store invite token and timestamp
+        client.invite_token = invite_token
+        client.invite_sent_at = datetime.utcnow()
+        db.session.commit()
+
+        # Build registration link
+        frontend_url = os.getenv('FRONTEND_MOBILE_URL', 'exp://localhost:8081')
+        registration_link = f"{frontend_url}/register?token={invite_token}"
+
+        # TODO: Send actual email using Flask-Mail
+        # For now, we'll return the invite link in the response for testing
+        # In production, this would send an email and not expose the link
+
+        return jsonify({
+            'success': True,
+            'message': f'Invitation prepared for {client.email}',
+            'invite_link': registration_link,  # Only for development/testing
+            'client': client.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to send invitation: {str(e)}'
+        }), 500

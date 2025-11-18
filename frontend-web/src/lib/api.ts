@@ -1,406 +1,279 @@
 /**
- * API Client for FitCompass Pro - F-015
- * Handles all communication with backend API
+ * API Client - Handles all API requests with authentication
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-// Demo trainer ID (will be replaced with JWT auth in Phase 6)
-const DEMO_TRAINER_ID = 'trainer-demo-1';
-
-/**
- * Get auth headers
- */
-function getHeaders(): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    'X-Trainer-Id': DEMO_TRAINER_ID,
-    // TODO: Add JWT token in Phase 6
-    // 'Authorization': `Bearer ${getToken()}`
-  };
+interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+  token?: string;
+  refresh_token?: string;
+  user?: any;
+  user_type?: string;
 }
 
-/**
- * Handle API errors
- */
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+class ApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl;
   }
-  return response.json();
-}
 
-// ============================================================================
-// CLIENT API
-// ============================================================================
+  /**
+   * Get authentication token from localStorage
+   */
+  private getToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('auth_token');
+    }
+    return null;
+  }
 
-export interface Client {
-  id: string;
-  name: string;
-  email: string;
-  gender?: "male" | "female" | "other" | "prefer-not-to-say";
-  age?: number;
-  goals?: string;
-  avatar?: string;
-  adherence: number;
-  lastActivity: string;
-  status: "active" | "archived";
-  createdAt: string;
-  workoutsCompleted: number;
-  workoutsAssigned: number;
-}
+  /**
+   * Set authentication token in localStorage
+   */
+  private setToken(token: string) {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('auth_token', token);
+    }
+  }
 
-export interface CreateClientInput {
-  name: string;
-  email: string;
-  gender?: string;
-  age?: number;
-  goals?: string;
-  avatar?: string;
-}
+  /**
+   * Remove authentication token from localStorage
+   */
+  private removeToken() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+    }
+  }
 
-export async function fetchClients(): Promise<Client[]> {
-  const response = await fetch(`${API_BASE}/clients`, {
-    headers: getHeaders()
-  });
-  return handleResponse<Client[]>(response);
-}
+  /**
+   * Make an authenticated API request
+   */
+  private async request<T = any>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    const token = this.getToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
-export async function createClient(data: CreateClientInput): Promise<Client> {
-  const response = await fetch(`${API_BASE}/clients`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse<Client>(response);
-}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
-export async function getClient(clientId: string): Promise<Client> {
-  const response = await fetch(`${API_BASE}/clients/${clientId}`, {
-    headers: getHeaders()
-  });
-  return handleResponse<Client>(response);
-}
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
 
-export async function updateClient(clientId: string, data: Partial<CreateClientInput>): Promise<Client> {
-  const response = await fetch(`${API_BASE}/clients/${clientId}`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse<Client>(response);
-}
+      const data = await response.json();
 
-export async function deleteClient(clientId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/clients/${clientId}`, {
-    method: 'DELETE',
-    headers: getHeaders()
-  });
-  await handleResponse<{ message: string }>(response);
-}
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
 
-// ============================================================================
-// EXERCISE API
-// ============================================================================
+      return data;
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  }
 
-export interface Exercise {
-  id: string;
-  externalId?: string;
-  name: string;
-  bodyPart: string;
-  equipment: string;
-  target: string;
-  gifUrl: string;
-  instructions: string[];
-  isCustom: boolean;
-}
+  // ==================== AUTH ENDPOINTS ====================
 
-export interface ExerciseFilters {
-  search?: string;
-  bodyPart?: string;
-  target?: string;
-  equipment?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export async function fetchExercises(filters?: ExerciseFilters): Promise<Exercise[]> {
-  const params = new URLSearchParams();
-  if (filters?.search) params.append('search', filters.search);
-  if (filters?.bodyPart) params.append('bodyPart', filters.bodyPart);
-  if (filters?.target) params.append('target', filters.target);
-  if (filters?.equipment) params.append('equipment', filters.equipment);
-  if (filters?.limit) params.append('limit', filters.limit.toString());
-  if (filters?.offset) params.append('offset', filters.offset.toString());
-
-  const url = `${API_BASE}/exercises${params.toString() ? `?${params}` : ''}`;
-  const response = await fetch(url, {
-    headers: getHeaders()
-  });
-  return handleResponse<Exercise[]>(response);
-}
-
-export async function getExerciseFilters(): Promise<{
-  bodyParts: string[];
-  targets: string[];
-  equipment: string[];
-}> {
-  const response = await fetch(`${API_BASE}/exercises/filters`, {
-    headers: getHeaders()
-  });
-  return handleResponse<{ bodyParts: string[]; targets: string[]; equipment: string[] }>(response);
-}
-
-export async function createCustomExercise(data: {
-  name: string;
-  bodyPart?: string;
-  equipment?: string;
-  target?: string;
-  gifUrl?: string;
-  instructions?: string[];
-}): Promise<Exercise> {
-  const response = await fetch(`${API_BASE}/exercises/custom`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse<Exercise>(response);
-}
-
-// ============================================================================
-// WORKOUT API
-// ============================================================================
-
-export interface WorkoutExercise {
-  exerciseId: string;
-  sets: number;
-  reps: string;
-  restSeconds: number;
-  notes?: string;
-}
-
-export interface Workout {
-  id: string;
-  name: string;
-  description?: string;
-  category?: string;
-  difficulty?: string;
-  durationMinutes?: number;
-  exerciseCount?: number;
-  assignmentCount?: number;
-  exercises?: WorkoutExercise[];
-  createdAt: string;
-  updatedAt?: string;
-}
-
-export interface CreateWorkoutInput {
-  name: string;
-  description?: string;
-  category?: string;
-  difficulty?: string;
-  durationMinutes?: number;
-  exercises: WorkoutExercise[];
-}
-
-export async function fetchWorkouts(): Promise<Workout[]> {
-  const response = await fetch(`${API_BASE}/workouts`, {
-    headers: getHeaders()
-  });
-  return handleResponse<Workout[]>(response);
-}
-
-export async function createWorkout(data: CreateWorkoutInput): Promise<Workout> {
-  const response = await fetch(`${API_BASE}/workouts`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse<Workout>(response);
-}
-
-export async function getWorkout(workoutId: string): Promise<Workout> {
-  const response = await fetch(`${API_BASE}/workouts/${workoutId}`, {
-    headers: getHeaders()
-  });
-  return handleResponse<Workout>(response);
-}
-
-export async function updateWorkout(workoutId: string, data: Partial<CreateWorkoutInput>): Promise<Workout> {
-  const response = await fetch(`${API_BASE}/workouts/${workoutId}`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse<Workout>(response);
-}
-
-export async function deleteWorkout(workoutId: string): Promise<void> {
-  const response = await fetch(`${API_BASE}/workouts/${workoutId}`, {
-    method: 'DELETE',
-    headers: getHeaders()
-  });
-  await handleResponse<{ message: string }>(response);
-}
-
-export async function assignWorkout(workoutId: string, data: {
-  clientIds: string[];
-  scheduledDate?: string;
-}): Promise<{ message: string; assignmentCount: number }> {
-  const response = await fetch(`${API_BASE}/workouts/${workoutId}/assign`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse<{ message: string; assignmentCount: number }>(response);
-}
-
-// ============================================================================
-// ASSIGNMENT & LOGGING API
-// ============================================================================
-
-export interface WorkoutAssignment {
-  id: string;
-  workoutId: string;
-  workoutName: string;
-  description?: string;
-  category?: string;
-  difficulty?: string;
-  durationMinutes?: number;
-  exerciseCount: number;
-  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
-  assignedDate: string;
-  scheduledDate?: string;
-  startedAt?: string;
-  completedAt?: string;
-  loggedSets?: number;
-}
-
-export async function fetchAssignments(clientId: string): Promise<WorkoutAssignment[]> {
-  const response = await fetch(`${API_BASE}/assignments?clientId=${clientId}`, {
-    headers: getHeaders()
-  });
-  return handleResponse<WorkoutAssignment[]>(response);
-}
-
-export async function getAssignment(assignmentId: string): Promise<WorkoutAssignment> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}`, {
-    headers: getHeaders()
-  });
-  return handleResponse<WorkoutAssignment>(response);
-}
-
-export async function startAssignment(assignmentId: string): Promise<{ id: string; status: string; startedAt: string }> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}/start`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  return handleResponse<{ id: string; status: string; startedAt: string }>(response);
-}
-
-export async function logSet(assignmentId: string, data: {
-  workoutExerciseId: string;
-  setNumber: number;
-  repsCompleted?: number;
-  weightUsed?: number;
-}): Promise<{
-  id: string;
-  setNumber: number;
-  repsCompleted?: number;
-  weightUsed?: number;
-  loggedAt: string;
-}> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}/logs`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse(response);
-}
-
-export async function completeAssignment(assignmentId: string): Promise<{
-  id: string;
-  status: string;
-  completedAt: string;
-  durationMinutes?: number;
-}> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}/complete`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  return handleResponse(response);
-}
-
-// ============================================================================
-// ANALYTICS API - F-018/F-019
-// ============================================================================
-
-export interface AnalyticsData {
-  totalClients: number;
-  activeClients: number;
-  avgAdherence: number;
-  workoutsThisWeek: number;
-  weeklyActivity: Array<{
-    date: string;
-    completed: number;
-  }>;
-  clientsAdherence: Array<{
-    clientId: string;
-    name: string;
-    adherence: number;
-    workoutsCompleted: number;
-    workoutsAssigned: number;
-  }>;
-}
-
-export interface ClientAnalyticsData {
-  client: {
-    id: string;
-    name: string;
+  /**
+   * Register a new trainer account
+   */
+  async register(data: {
     email: string;
-  };
-  adherence: number;
-  workoutsCompleted: number;
-  workoutsAssigned: number;
-  lastWorkout: string | null;
-  progressByExercise: Array<{
-    exerciseId: string;
-    sessions: Array<{
-      date: string;
-      avgWeight: number;
-      maxWeight: number;
-      totalReps: number;
-    }>;
-  }>;
+    password: string;
+    name: string;
+    business_name?: string;
+  }): Promise<ApiResponse> {
+    const response = await this.request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (response.token) {
+      this.setToken(response.token);
+      if (response.refresh_token) {
+        localStorage.setItem('refresh_token', response.refresh_token);
+      }
+      if (response.user) {
+        localStorage.setItem('user', JSON.stringify(response.user));
+      }
+    }
+
+    return response;
+  }
+
+  /**
+   * Login with email and password
+   */
+  async login(data: {
+    email: string;
+    password: string;
+    user_type?: 'trainer' | 'client';
+  }): Promise<ApiResponse> {
+    const response = await this.request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (response.token) {
+      this.setToken(response.token);
+      if (response.refresh_token) {
+        localStorage.setItem('refresh_token', response.refresh_token);
+      }
+      if (response.user) {
+        localStorage.setItem('user', JSON.stringify(response.user));
+        localStorage.setItem('user_type', response.user_type || 'trainer');
+      }
+    }
+
+    return response;
+  }
+
+  /**
+   * Logout - clear tokens
+   */
+  logout() {
+    this.removeToken();
+  }
+
+  /**
+   * Get current user info
+   */
+  async getCurrentUser(): Promise<ApiResponse> {
+    return this.request('/api/auth/me');
+  }
+
+  /**
+   * Refresh access token
+   */
+  async refreshToken(): Promise<ApiResponse> {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${refreshToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.token) {
+      this.setToken(data.token);
+    }
+
+    return data;
+  }
+
+  // ==================== CLIENT ENDPOINTS ====================
+
+  /**
+   * Get all clients for the authenticated trainer
+   */
+  async getClients(params?: { active?: boolean }): Promise<ApiResponse> {
+    const queryString = params
+      ? '?' + new URLSearchParams(params as any).toString()
+      : '';
+    return this.request(`/api/clients${queryString}`);
+  }
+
+  /**
+   * Get a specific client
+   */
+  async getClient(clientId: number): Promise<ApiResponse> {
+    return this.request(`/api/clients/${clientId}`);
+  }
+
+  /**
+   * Create a new client
+   */
+  async createClient(data: {
+    email: string;
+    name: string;
+    phone?: string;
+    notes?: string;
+  }): Promise<ApiResponse> {
+    return this.request('/api/clients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update a client
+   */
+  async updateClient(
+    clientId: number,
+    data: {
+      name?: string;
+      phone?: string;
+      notes?: string;
+      is_active?: boolean;
+    }
+  ): Promise<ApiResponse> {
+    return this.request(`/api/clients/${clientId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete a client
+   */
+  async deleteClient(clientId: number): Promise<ApiResponse> {
+    return this.request(`/api/clients/${clientId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Send invitation to a client
+   */
+  async inviteClient(clientId: number): Promise<ApiResponse> {
+    return this.request(`/api/clients/${clientId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    return !!this.getToken();
+  }
+
+  /**
+   * Get stored user data
+   */
+  getStoredUser(): any {
+    if (typeof window !== 'undefined') {
+      const userJson = localStorage.getItem('user');
+      return userJson ? JSON.parse(userJson) : null;
+    }
+    return null;
+  }
 }
 
-/**
- * Fetch trainer analytics
- */
-export async function fetchTrainerAnalytics(
-  period: 'week' | 'month' | 'quarter' | 'year' = 'week'
-): Promise<AnalyticsData> {
-  const response = await fetch(
-    `${API_BASE}/analytics/trainers/me?period=${period}`,
-    {
-      headers: getHeaders()
-    }
-  );
-  return handleResponse<AnalyticsData>(response);
-}
-
-/**
- * Fetch client analytics
- */
-export async function fetchClientAnalytics(
-  clientId: string,
-  period: 'week' | 'month' | 'quarter' | 'year' = 'month'
-): Promise<ClientAnalyticsData> {
-  const response = await fetch(
-    `${API_BASE}/analytics/clients/${clientId}?period=${period}`,
-    {
-      headers: getHeaders()
-    }
-  );
-  return handleResponse<ClientAnalyticsData>(response);
-}
+// Export singleton instance
+export const api = new ApiClient();
+export default api;

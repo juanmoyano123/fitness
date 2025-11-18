@@ -1,185 +1,258 @@
 /**
- * API Client for FitCompass Pro Mobile - F-016
- * Handles all communication with backend API
+ * API Client - Handles all API requests with authentication
+ * Uses AsyncStorage for token persistence in React Native
  */
 
-// For development, update this to your local IP or production URL
-const API_BASE = 'http://localhost:5000/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Demo client ID (will be replaced with JWT auth in Phase 6)
-const DEMO_CLIENT_ID = 'client-1';
+const API_BASE_URL = 'http://localhost:5000'; // TODO: Use environment variable
 
-/**
- * Get auth headers
- */
-function getHeaders(): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    // TODO: Add JWT token in Phase 6
-    // 'Authorization': `Bearer ${getToken()}`
-  };
+interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+  token?: string;
+  refresh_token?: string;
+  user?: any;
+  user_type?: string;
 }
 
-/**
- * Handle API errors
- */
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
+class ApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl;
   }
-  return response.json();
-}
 
-// ============================================================================
-// WORKOUT ASSIGNMENTS API
-// ============================================================================
-
-export interface WorkoutAssignment {
-  id: string;
-  workoutId: string;
-  workoutName: string;
-  description?: string;
-  category?: string;
-  difficulty?: string;
-  durationMinutes?: number;
-  exerciseCount: number;
-  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
-  assignedDate: string;
-  scheduledDate?: string;
-  startedAt?: string;
-  completedAt?: string;
-  loggedSets?: number;
-}
-
-export interface AssignmentExercise {
-  id: string;
-  exerciseId: string;
-  name: string;
-  bodyPart: string;
-  equipment: string;
-  target: string;
-  gifUrl: string;
-  sets: number;
-  reps: string;
-  restSeconds: number;
-  notes?: string;
-  orderIndex: number;
-  logs: SetLog[];
-}
-
-export interface SetLog {
-  id: string;
-  setNumber: number;
-  repsCompleted?: number;
-  weightUsed?: number;
-  loggedAt: string;
-}
-
-export interface AssignmentDetail extends WorkoutAssignment {
-  exercises: AssignmentExercise[];
-}
-
-/**
- * Fetch workout assignments for current client
- */
-export async function fetchMyWorkouts(): Promise<WorkoutAssignment[]> {
-  const response = await fetch(`${API_BASE}/assignments?clientId=${DEMO_CLIENT_ID}`, {
-    headers: getHeaders()
-  });
-  return handleResponse<WorkoutAssignment[]>(response);
-}
-
-/**
- * Get assignment details with exercises and logs
- */
-export async function getAssignmentDetail(assignmentId: string): Promise<AssignmentDetail> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}`, {
-    headers: getHeaders()
-  });
-  return handleResponse<AssignmentDetail>(response);
-}
-
-/**
- * Start a workout
- */
-export async function startWorkout(assignmentId: string): Promise<{
-  id: string;
-  status: string;
-  startedAt: string;
-}> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}/start`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  return handleResponse(response);
-}
-
-/**
- * Log a completed set
- */
-export async function logSet(
-  assignmentId: string,
-  data: {
-    workoutExerciseId: string;
-    setNumber: number;
-    repsCompleted?: number;
-    weightUsed?: number;
+  /**
+   * Get authentication token from AsyncStorage
+   */
+  private async getToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem('auth_token');
+    } catch (error) {
+      console.error('Error getting token:', error);
+      return null;
+    }
   }
-): Promise<SetLog> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}/logs`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
-  return handleResponse<SetLog>(response);
-}
 
-/**
- * Complete a workout
- */
-export async function completeWorkout(assignmentId: string): Promise<{
-  id: string;
-  status: string;
-  completedAt: string;
-  durationMinutes?: number;
-}> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}/complete`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  return handleResponse(response);
-}
+  /**
+   * Set authentication token in AsyncStorage
+   */
+  private async setToken(token: string) {
+    try {
+      await AsyncStorage.setItem('auth_token', token);
+    } catch (error) {
+      console.error('Error setting token:', error);
+    }
+  }
 
-/**
- * Skip a workout
- */
-export async function skipWorkout(assignmentId: string): Promise<{
-  id: string;
-  status: string;
-}> {
-  const response = await fetch(`${API_BASE}/assignments/${assignmentId}/skip`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  return handleResponse(response);
-}
+  /**
+   * Remove authentication token from AsyncStorage
+   */
+  private async removeToken() {
+    try {
+      await AsyncStorage.multiRemove([
+        'auth_token',
+        'refresh_token',
+        'user',
+        'user_type',
+      ]);
+    } catch (error) {
+      console.error('Error removing tokens:', error);
+    }
+  }
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
+  /**
+   * Make an authenticated API request
+   */
+  private async request<T = any>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    const token = await this.getToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
-/**
- * Check if API is reachable
- */
-export async function checkHealth(): Promise<boolean> {
-  try {
-    const response = await fetch(`${API_BASE.replace('/api', '')}/health`, {
-      headers: getHeaders()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  }
+
+  // ==================== AUTH ENDPOINTS ====================
+
+  /**
+   * Register a new client account (used with invite token)
+   */
+  async registerClient(data: {
+    email: string;
+    password: string;
+    name: string;
+    invite_token?: string;
+  }): Promise<ApiResponse> {
+    const response = await this.request('/api/auth/register-client', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
+
+    if (response.token) {
+      await this.setToken(response.token);
+      if (response.refresh_token) {
+        await AsyncStorage.setItem('refresh_token', response.refresh_token);
+      }
+      if (response.user) {
+        await AsyncStorage.setItem('user', JSON.stringify(response.user));
+        await AsyncStorage.setItem('user_type', 'client');
+      }
+    }
+
+    return response;
+  }
+
+  /**
+   * Login with email and password
+   */
+  async login(data: {
+    email: string;
+    password: string;
+    user_type?: 'trainer' | 'client';
+  }): Promise<ApiResponse> {
+    const response = await this.request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, user_type: data.user_type || 'client' }),
+    });
+
+    if (response.token) {
+      await this.setToken(response.token);
+      if (response.refresh_token) {
+        await AsyncStorage.setItem('refresh_token', response.refresh_token);
+      }
+      if (response.user) {
+        await AsyncStorage.setItem('user', JSON.stringify(response.user));
+        await AsyncStorage.setItem(
+          'user_type',
+          response.user_type || 'client'
+        );
+      }
+    }
+
+    return response;
+  }
+
+  /**
+   * Logout - clear tokens
+   */
+  async logout() {
+    await this.removeToken();
+  }
+
+  /**
+   * Get current user info
+   */
+  async getCurrentUser(): Promise<ApiResponse> {
+    return this.request('/api/auth/me');
+  }
+
+  /**
+   * Refresh access token
+   */
+  async refreshToken(): Promise<ApiResponse> {
+    const refreshToken = await AsyncStorage.getItem('refresh_token');
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${refreshToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
     const data = await response.json();
-    return data.status === 'healthy';
-  } catch {
-    return false;
+
+    if (response.ok && data.token) {
+      await this.setToken(data.token);
+    }
+
+    return data;
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  async isAuthenticated(): Promise<boolean> {
+    const token = await this.getToken();
+    return !!token;
+  }
+
+  /**
+   * Get stored user data
+   */
+  async getStoredUser(): Promise<any> {
+    try {
+      const userJson = await AsyncStorage.getItem('user');
+      return userJson ? JSON.parse(userJson) : null;
+    } catch (error) {
+      console.error('Error getting stored user:', error);
+      return null;
+    }
+  }
+
+  // ==================== WORKOUT ENDPOINTS ====================
+
+  /**
+   * Get all workouts for the authenticated client
+   */
+  async getWorkouts(): Promise<ApiResponse> {
+    return this.request('/api/workouts');
+  }
+
+  /**
+   * Get a specific workout
+   */
+  async getWorkout(workoutId: string): Promise<ApiResponse> {
+    return this.request(`/api/workouts/${workoutId}`);
+  }
+
+  /**
+   * Log a workout completion
+   */
+  async logWorkout(data: {
+    workout_id: number;
+    performance_data: any[];
+    duration_seconds: number;
+    notes?: string;
+  }): Promise<ApiResponse> {
+    return this.request('/api/workout-logs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
+
+// Export singleton instance
+export const api = new ApiClient();
+export default api;

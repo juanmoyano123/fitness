@@ -1,42 +1,54 @@
 """
-Workout Model - Rutinas de entrenamiento
+Workout Model - Represents a workout template created by a trainer
 """
 from app import db
 from datetime import datetime
 
 
 class Workout(db.Model):
+    """Workout template model"""
     __tablename__ = 'workouts'
 
     id = db.Column(db.Integer, primary_key=True)
-    trainer_id = db.Column(db.Integer, db.ForeignKey('trainers.id', ondelete='CASCADE'), nullable=False, index=True)
-    name = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    is_template = db.Column(db.Boolean, default=False, index=True)
+    trainer_id = db.Column(db.Integer, db.ForeignKey('trainers.id'), nullable=False, index=True)
+
+    # Additional fields for frontend compatibility (FASE 1 & 2)
+    category = db.Column(db.String(50))  # "strength" | "cardio" | "hybrid" | "flexibility"
+    difficulty = db.Column(db.String(20))  # "beginner" | "intermediate" | "advanced"
+    duration = db.Column(db.Integer)  # minutes
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     trainer = db.relationship('Trainer', back_populates='workouts')
-    workout_exercises = db.relationship('WorkoutExercise', back_populates='workout', cascade='all, delete-orphan', order_by='WorkoutExercise.order_index')
-    assignments = db.relationship('WorkoutAssignment', back_populates='workout', cascade='all, delete-orphan')
+    exercises = db.relationship('WorkoutExercise', back_populates='workout', lazy='dynamic', cascade='all, delete-orphan')
+    assignments = db.relationship('WorkoutAssignment', back_populates='workout', lazy='dynamic', cascade='all, delete-orphan')
+    # Note: workout_logs accessed via assignments.workout_logs.join(workout_exercises) (schema.sql structure)
 
     def to_dict(self, include_exercises=False):
-        """Convert to dictionary for JSON serialization"""
-        result = {
+        """Convert workout to dictionary representation"""
+        data = {
             'id': self.id,
-            'trainer_id': self.trainer_id,
             'name': self.name,
             'description': self.description,
-            'is_template': self.is_template,
+            'trainer_id': self.trainer_id,
+            'category': self.category,
+            'difficulty': self.difficulty,
+            'duration': self.duration,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'createdAt': self.created_at.isoformat() if self.created_at else None,  # FASE 1 compatibility
+            'createdBy': f'trainer-{self.trainer_id}',  # FASE 1 compatibility
         }
 
         if include_exercises:
-            result['exercises'] = [we.to_dict() for we in self.workout_exercises]
+            exercises_list = [we.to_dict() for we in self.exercises.all()]
+            data['exercises'] = exercises_list
+            data['exerciseCount'] = len(exercises_list)  # FASE 2 compatibility
 
-        return result
+        return data
 
     def __repr__(self):
         return f'<Workout {self.name}>'

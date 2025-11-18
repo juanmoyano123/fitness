@@ -34,19 +34,17 @@ def create_app():
 
     # Register blueprints (routes)
     from app.routes import (
-        health_bp,
-        clients_bp,
-        exercises_bp,
-        workouts_bp,
-        assignments_bp,
-        analytics_bp
+        auth_bp, clients_bp, workouts_bp, assignments_bp,
+        analytics_bp, trainers_bp, clients_analytics_bp, workout_logs_bp
     )
-    app.register_blueprint(health_bp)
+    app.register_blueprint(auth_bp)
     app.register_blueprint(clients_bp)
-    app.register_blueprint(exercises_bp)
     app.register_blueprint(workouts_bp)
     app.register_blueprint(assignments_bp)
-    app.register_blueprint(analytics_bp)
+    app.register_blueprint(analytics_bp)  # FASE 6 compatibility
+    app.register_blueprint(trainers_bp)  # FASE 5 spec
+    app.register_blueprint(clients_analytics_bp)  # FASE 5 spec
+    app.register_blueprint(workout_logs_bp)
 
     # Create tables (for development only)
     with app.app_context():

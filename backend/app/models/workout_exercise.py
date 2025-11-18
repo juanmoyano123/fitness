@@ -1,58 +1,50 @@
 """
-WorkoutExercise Model - Ejercicios dentro de workouts con configuración
+WorkoutExercise Model - Junction table linking workouts to exercises with order/sets/reps
 """
 from app import db
-from datetime import datetime
-from sqlalchemy import CheckConstraint, UniqueConstraint
 
 
 class WorkoutExercise(db.Model):
+    """Junction model for workout-exercise relationship with prescription details"""
     __tablename__ = 'workout_exercises'
 
     id = db.Column(db.Integer, primary_key=True)
-    workout_id = db.Column(db.Integer, db.ForeignKey('workouts.id', ondelete='CASCADE'), nullable=False, index=True)
-    exercise_id = db.Column(db.Integer, db.ForeignKey('exercises.id', ondelete='CASCADE'), nullable=False, index=True)
-    order_index = db.Column(db.Integer, nullable=False)
+    workout_id = db.Column(db.Integer, db.ForeignKey('workouts.id'), nullable=False, index=True)
+    exercise_id = db.Column(db.Integer, db.ForeignKey('exercises.id'), nullable=False, index=True)
+
+    # Exercise prescription
+    order_index = db.Column('order_index', db.Integer, nullable=False)  # Order in workout (matches schema.sql)
     sets = db.Column(db.Integer, default=3)
     reps = db.Column(db.Integer, default=10)
-    weight = db.Column(db.Numeric(5, 2))
     rest_seconds = db.Column(db.Integer, default=60)
+    weight = db.Column(db.Float)  # Optional weight in kg
     notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Constraints
-    __table_args__ = (
-        UniqueConstraint('workout_id', 'order_index', name='uq_workout_order'),
-        CheckConstraint('sets >= 1 AND sets <= 10', name='check_sets_range'),
-        CheckConstraint('reps >= 1 AND reps <= 100', name='check_reps_range'),
-        CheckConstraint('weight >= 0', name='check_weight_positive'),
-        CheckConstraint('rest_seconds >= 0', name='check_rest_positive'),
-    )
 
     # Relationships
-    workout = db.relationship('Workout', back_populates='workout_exercises')
+    workout = db.relationship('Workout', back_populates='exercises')
     exercise = db.relationship('Exercise', back_populates='workout_exercises')
-    logs = db.relationship('WorkoutLog', back_populates='workout_exercise', cascade='all, delete-orphan')
 
     def to_dict(self, include_exercise=True):
-        """Convert to dictionary for JSON serialization"""
-        result = {
+        """Convert workout exercise to dictionary representation"""
+        data = {
             'id': self.id,
             'workout_id': self.workout_id,
             'exercise_id': self.exercise_id,
-            'order_index': self.order_index,
+            'exerciseId': str(self.exercise_id),  # FASE 1 compatibility (as string)
+            'order': self.order_index,  # Frontend expects 'order'
+            'order_index': self.order_index,  # Backend compatibility
             'sets': self.sets,
             'reps': self.reps,
-            'weight': float(self.weight) if self.weight else None,
             'rest_seconds': self.rest_seconds,
+            'rest': self.rest_seconds,  # FASE 1 compatibility
+            'weight': self.weight,  # FASE 1 compatibility
             'notes': self.notes,
-            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
         if include_exercise and self.exercise:
-            result['exercise'] = self.exercise.to_dict()
+            data['exercise'] = self.exercise.to_dict()
 
-        return result
+        return data
 
     def __repr__(self):
-        return f'<WorkoutExercise workout_id={self.workout_id} order={self.order_index}>'
+        return f'<WorkoutExercise workout={self.workout_id} exercise={self.exercise_id}>'

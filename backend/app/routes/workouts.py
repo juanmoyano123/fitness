@@ -1,232 +1,399 @@
 """
-Workout routes - F-013
+Workout & Assignment Routes - CRUD operations for workouts and assignments
 """
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from datetime import datetime
 from app import db
-from app.models import Workout, WorkoutExercise, WorkoutAssignment, Exercise
-from datetime import datetime, date
-import uuid
+from app.models import Workout, WorkoutExercise, WorkoutAssignment, Client, Exercise
 
 workouts_bp = Blueprint('workouts', __name__, url_prefix='/api/workouts')
+assignments_bp = Blueprint('assignments', __name__, url_prefix='/api/assignments')
 
+
+def require_trainer():
+    """Helper to verify user is a trainer"""
+    claims = get_jwt()
+    if claims.get('type') != 'trainer':
+        return jsonify({
+            'success': False,
+            'error': 'Trainer access required'
+        }), 403
+    return None
+
+
+# ==================== WORKOUTS ENDPOINTS ====================
 
 @workouts_bp.route('', methods=['GET'])
-def list_workouts():
-    """List all workouts for authenticated trainer"""
-    trainer_id = request.headers.get('X-Trainer-Id', 'trainer-demo-1')
+@jwt_required()
+def get_workouts():
+    """Get all workouts for the authenticated trainer"""
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    workouts = Workout.query.filter_by(trainer_id=trainer_id).order_by(
-        Workout.created_at.desc()
-    ).all()
+    try:
+        trainer_id = get_jwt_identity()
+        workouts = Workout.query.filter_by(trainer_id=trainer_id).all()
 
-    result = []
-    for workout in workouts:
-        # Get exercise count
-        exercise_count = workout.exercises.count()
+        return jsonify({
+            'success': True,
+            'data': [workout.to_dict(include_exercises=True) for workout in workouts]
+        }), 200
 
-        # Get assignment count
-        assignment_count = workout.assignments.count()
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get workouts: {str(e)}'
+        }), 500
 
-        result.append({
-            'id': workout.id,
-            'name': workout.name,
-            'description': workout.description,
-            'category': workout.category,
-            'difficulty': workout.difficulty,
-            'durationMinutes': workout.duration_minutes,
-            'exerciseCount': exercise_count,
-            'assignmentCount': assignment_count,
-            'createdAt': workout.created_at.isoformat(),
-            'updatedAt': workout.updated_at.isoformat()
-        })
 
-    return jsonify(result), 200
+@workouts_bp.route('/<int:workout_id>', methods=['GET'])
+@jwt_required()
+def get_workout(workout_id):
+    """Get a specific workout by ID"""
+    error_response = require_trainer()
+    if error_response:
+        return error_response
+
+    try:
+        trainer_id = get_jwt_identity()
+        workout = Workout.query.filter_by(id=workout_id, trainer_id=trainer_id).first()
+
+        if not workout:
+            return jsonify({
+                'success': False,
+                'error': 'Workout not found'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'data': workout.to_dict(include_exercises=True)
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get workout: {str(e)}'
+        }), 500
 
 
 @workouts_bp.route('', methods=['POST'])
+@jwt_required()
 def create_workout():
-    """Create a new workout"""
-    trainer_id = request.headers.get('X-Trainer-Id', 'trainer-demo-1')
-    data = request.get_json()
+    """
+    Create a new workout
 
-    # Validation
-    if not data.get('name'):
-        return jsonify({'error': 'Name is required'}), 400
+    Request body:
+    {
+        "name": "Upper Body Strength",
+        "description": "Focus on chest and back",
+        "exercises": [
+            {
+                "exercise_id": 1,
+                "order": 1,
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 60,
+                "notes": "Focus on form"
+            }
+        ]
+    }
+    """
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    # Create workout
-    workout = Workout(
-        id=f"workout-{uuid.uuid4().hex[:8]}",
-        trainer_id=trainer_id,
-        name=data['name'],
-        description=data.get('description', ''),
-        category=data.get('category', ''),
-        difficulty=data.get('difficulty', 'intermediate'),
-        duration_minutes=data.get('durationMinutes', 45)
-    )
+    try:
+        trainer_id = get_jwt_identity()
+        data = request.get_json()
 
-    db.session.add(workout)
+        if not data or not data.get('name'):
+            return jsonify({
+                'success': False,
+                'error': 'Name is required'
+            }), 400
 
-    # Add exercises
-    exercises = data.get('exercises', [])
-    for idx, ex_data in enumerate(exercises):
-        workout_exercise = WorkoutExercise(
-            id=f"we-{uuid.uuid4().hex[:8]}",
-            workout_id=workout.id,
-            exercise_id=ex_data['exerciseId'],
-            order_index=idx,
-            sets=ex_data.get('sets', 3),
-            reps=ex_data.get('reps', '10'),
-            rest_seconds=ex_data.get('restSeconds', 60),
-            notes=ex_data.get('notes', '')
+        # Create workout (compatible with FASE 1 & 2 frontend)
+        workout = Workout(
+            name=data['name'],
+            description=data.get('description', ''),
+            trainer_id=trainer_id,
+            category=data.get('category'),  # FASE 1 compatibility
+            difficulty=data.get('difficulty'),  # FASE 1 compatibility
+            duration=data.get('duration')  # FASE 1 compatibility
         )
-        db.session.add(workout_exercise)
 
-    db.session.commit()
+        db.session.add(workout)
+        db.session.flush()  # Get workout ID
 
-    return jsonify({
-        'id': workout.id,
-        'name': workout.name,
-        'description': workout.description,
-        'category': workout.category,
-        'difficulty': workout.difficulty,
-        'durationMinutes': workout.duration_minutes,
-        'createdAt': workout.created_at.isoformat()
-    }), 201
+        # Add exercises if provided
+        if 'exercises' in data:
+            for ex_data in data['exercises']:
+                workout_exercise = WorkoutExercise(
+                    workout_id=workout.id,
+                    exercise_id=ex_data['exercise_id'],
+                    order_index=ex_data.get('order') or ex_data.get('order_index', 0),  # Accept both
+                    sets=ex_data.get('sets', 3),
+                    reps=ex_data.get('reps', 10),
+                    rest_seconds=ex_data.get('rest_seconds', 60),
+                    weight=ex_data.get('weight'),  # FASE 1 compatibility
+                    notes=ex_data.get('notes')
+                )
+                db.session.add(workout_exercise)
 
+        db.session.commit()
 
-@workouts_bp.route('/<workout_id>', methods=['GET'])
-def get_workout(workout_id):
-    """Get workout details with exercises"""
-    workout = Workout.query.get_or_404(workout_id)
+        return jsonify({
+            'success': True,
+            'message': 'Workout created successfully',
+            'data': workout.to_dict(include_exercises=True)
+        }), 201
 
-    # Get exercises with details
-    workout_exercises = workout.exercises.order_by(WorkoutExercise.order_index).all()
-    exercises = []
-
-    for we in workout_exercises:
-        exercise = we.exercise
-        exercises.append({
-            'id': we.id,
-            'exerciseId': exercise.id,
-            'name': exercise.name,
-            'bodyPart': exercise.body_part,
-            'equipment': exercise.equipment,
-            'target': exercise.target,
-            'gifUrl': exercise.gif_url,
-            'sets': we.sets,
-            'reps': we.reps,
-            'restSeconds': we.rest_seconds,
-            'notes': we.notes,
-            'orderIndex': we.order_index
-        })
-
-    return jsonify({
-        'id': workout.id,
-        'name': workout.name,
-        'description': workout.description,
-        'category': workout.category,
-        'difficulty': workout.difficulty,
-        'durationMinutes': workout.duration_minutes,
-        'exercises': exercises,
-        'createdAt': workout.created_at.isoformat(),
-        'updatedAt': workout.updated_at.isoformat()
-    }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to create workout: {str(e)}'
+        }), 500
 
 
-@workouts_bp.route('/<workout_id>', methods=['PUT'])
+@workouts_bp.route('/<int:workout_id>', methods=['PUT'])
+@jwt_required()
 def update_workout(workout_id):
-    """Update workout"""
-    workout = Workout.query.get_or_404(workout_id)
-    data = request.get_json()
+    """Update a workout"""
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    # Update basic fields
-    if 'name' in data:
-        workout.name = data['name']
-    if 'description' in data:
-        workout.description = data['description']
-    if 'category' in data:
-        workout.category = data['category']
-    if 'difficulty' in data:
-        workout.difficulty = data['difficulty']
-    if 'durationMinutes' in data:
-        workout.duration_minutes = data['durationMinutes']
+    try:
+        trainer_id = get_jwt_identity()
+        workout = Workout.query.filter_by(id=workout_id, trainer_id=trainer_id).first()
 
-    # Update exercises if provided
-    if 'exercises' in data:
-        # Delete existing exercises
-        WorkoutExercise.query.filter_by(workout_id=workout_id).delete()
+        if not workout:
+            return jsonify({
+                'success': False,
+                'error': 'Workout not found'
+            }), 404
 
-        # Add new exercises
-        for idx, ex_data in enumerate(data['exercises']):
-            workout_exercise = WorkoutExercise(
-                id=f"we-{uuid.uuid4().hex[:8]}",
-                workout_id=workout.id,
-                exercise_id=ex_data['exerciseId'],
-                order_index=idx,
-                sets=ex_data.get('sets', 3),
-                reps=ex_data.get('reps', '10'),
-                rest_seconds=ex_data.get('restSeconds', 60),
-                notes=ex_data.get('notes', '')
-            )
-            db.session.add(workout_exercise)
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
 
-    workout.updated_at = datetime.utcnow()
-    db.session.commit()
+        # Update fields (compatible with FASE 1 & 2 frontend)
+        if 'name' in data:
+            workout.name = data['name']
+        if 'description' in data:
+            workout.description = data['description']
+        if 'category' in data:
+            workout.category = data['category']
+        if 'difficulty' in data:
+            workout.difficulty = data['difficulty']
+        if 'duration' in data:
+            workout.duration = data['duration']
 
-    return jsonify({
-        'id': workout.id,
-        'name': workout.name,
-        'description': workout.description,
-        'updatedAt': workout.updated_at.isoformat()
-    }), 200
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Workout updated successfully',
+            'data': workout.to_dict(include_exercises=True)
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update workout: {str(e)}'
+        }), 500
 
 
-@workouts_bp.route('/<workout_id>', methods=['DELETE'])
+@workouts_bp.route('/<int:workout_id>', methods=['DELETE'])
+@jwt_required()
 def delete_workout(workout_id):
-    """Delete workout"""
-    workout = Workout.query.get_or_404(workout_id)
-    db.session.delete(workout)
-    db.session.commit()
+    """Delete a workout"""
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    return jsonify({'message': 'Workout deleted successfully'}), 200
+    try:
+        trainer_id = get_jwt_identity()
+        workout = Workout.query.filter_by(id=workout_id, trainer_id=trainer_id).first()
+
+        if not workout:
+            return jsonify({
+                'success': False,
+                'error': 'Workout not found'
+            }), 404
+
+        db.session.delete(workout)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Workout deleted successfully'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to delete workout: {str(e)}'
+        }), 500
 
 
-@workouts_bp.route('/<workout_id>/assign', methods=['POST'])
-def assign_workout(workout_id):
-    """Assign workout to clients"""
-    workout = Workout.query.get_or_404(workout_id)
-    data = request.get_json()
+# ==================== ASSIGNMENTS ENDPOINTS ====================
 
-    client_ids = data.get('clientIds', [])
-    scheduled_date = data.get('scheduledDate')
+@assignments_bp.route('', methods=['POST'])
+@jwt_required()
+def create_assignment():
+    """
+    Assign a workout to a client
 
-    if not client_ids:
-        return jsonify({'error': 'At least one client is required'}), 400
+    Request body:
+    {
+        "workout_id": 1,
+        "client_id": 2,
+        "due_date": "2025-11-20T00:00:00Z" (optional),
+        "notes": "Focus on form" (optional)
+    }
+    """
+    error_response = require_trainer()
+    if error_response:
+        return error_response
 
-    # Parse scheduled date
-    sched_date = None
-    if scheduled_date:
-        try:
-            sched_date = datetime.fromisoformat(scheduled_date.replace('Z', '+00:00')).date()
-        except:
-            sched_date = None
+    try:
+        trainer_id = get_jwt_identity()
+        data = request.get_json()
 
-    # Create assignments
-    assignments = []
-    for client_id in client_ids:
+        if not data or not data.get('workout_id') or not data.get('client_id'):
+            return jsonify({
+                'success': False,
+                'error': 'workout_id and client_id are required'
+            }), 400
+
+        # Verify ownership
+        workout = Workout.query.filter_by(id=data['workout_id'], trainer_id=trainer_id).first()
+        client = Client.query.filter_by(id=data['client_id'], trainer_id=trainer_id).first()
+
+        if not workout or not client:
+            return jsonify({
+                'success': False,
+                'error': 'Workout or client not found'
+            }), 404
+
+        # Create assignment
         assignment = WorkoutAssignment(
-            id=f"assignment-{uuid.uuid4().hex[:8]}",
-            workout_id=workout_id,
-            client_id=client_id,
-            scheduled_date=sched_date,
-            status='pending'
+            workout_id=data['workout_id'],
+            client_id=data['client_id'],
+            trainer_id=trainer_id,
+            due_date=datetime.fromisoformat(data['due_date'].replace('Z', '+00:00')) if data.get('due_date') else None,
+            notes=data.get('notes')
         )
+
         db.session.add(assignment)
-        assignments.append(assignment)
+        db.session.commit()
 
-    db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': 'Workout assigned successfully',
+            'data': assignment.to_dict()
+        }), 201
 
-    return jsonify({
-        'message': f'Workout assigned to {len(client_ids)} client(s)',
-        'assignmentCount': len(assignments)
-    }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to assign workout: {str(e)}'
+        }), 500
+
+
+@assignments_bp.route('/client/<int:client_id>', methods=['GET'])
+@jwt_required()
+def get_client_assignments(client_id):
+    """Get all assignments for a specific client"""
+    try:
+        # Can be accessed by trainer or the client themselves
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        user_type = claims.get('type', 'trainer')
+
+        if user_type == 'trainer':
+            assignments = WorkoutAssignment.query.filter_by(
+                client_id=client_id,
+                trainer_id=user_id
+            ).all()
+        else:
+            # Client accessing their own assignments
+            if user_id != client_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'Unauthorized'
+                }), 403
+            assignments = WorkoutAssignment.query.filter_by(client_id=client_id).all()
+
+        return jsonify({
+            'success': True,
+            'data': [assignment.to_dict() for assignment in assignments]
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get assignments: {str(e)}'
+        }), 500
+
+
+@assignments_bp.route('/<int:assignment_id>/status', methods=['PUT'])
+@jwt_required()
+def update_assignment_status(assignment_id):
+    """
+    Update assignment status
+
+    Request body:
+    {
+        "status": "in_progress" | "completed" | "skipped"
+    }
+    """
+    try:
+        data = request.get_json()
+
+        if not data or not data.get('status'):
+            return jsonify({
+                'success': False,
+                'error': 'Status is required'
+            }), 400
+
+        assignment = WorkoutAssignment.query.get(assignment_id)
+
+        if not assignment:
+            return jsonify({
+                'success': False,
+                'error': 'Assignment not found'
+            }), 404
+
+        # Update status
+        assignment.status = data['status']
+
+        if data['status'] == 'in_progress' and not assignment.started_at:
+            assignment.started_at = datetime.utcnow()
+        elif data['status'] == 'completed' and not assignment.completed_at:
+            assignment.completed_at = datetime.utcnow()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Status updated successfully',
+            'data': assignment.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update status: {str(e)}'
+        }), 500
