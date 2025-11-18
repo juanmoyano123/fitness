@@ -330,3 +330,77 @@ export async function completeAssignment(assignmentId: string): Promise<{
   });
   return handleResponse(response);
 }
+
+// ============================================================================
+// ANALYTICS API - F-018/F-019
+// ============================================================================
+
+export interface AnalyticsData {
+  totalClients: number;
+  activeClients: number;
+  avgAdherence: number;
+  workoutsThisWeek: number;
+  weeklyActivity: Array<{
+    date: string;
+    completed: number;
+  }>;
+  clientsAdherence: Array<{
+    clientId: string;
+    name: string;
+    adherence: number;
+    workoutsCompleted: number;
+    workoutsAssigned: number;
+  }>;
+}
+
+export interface ClientAnalyticsData {
+  client: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  adherence: number;
+  workoutsCompleted: number;
+  workoutsAssigned: number;
+  lastWorkout: string | null;
+  progressByExercise: Array<{
+    exerciseId: string;
+    sessions: Array<{
+      date: string;
+      avgWeight: number;
+      maxWeight: number;
+      totalReps: number;
+    }>;
+  }>;
+}
+
+/**
+ * Fetch trainer analytics
+ */
+export async function fetchTrainerAnalytics(
+  period: 'week' | 'month' | 'quarter' | 'year' = 'week'
+): Promise<AnalyticsData> {
+  const response = await fetch(
+    `${API_BASE}/analytics/trainers/me?period=${period}`,
+    {
+      headers: getHeaders()
+    }
+  );
+  return handleResponse<AnalyticsData>(response);
+}
+
+/**
+ * Fetch client analytics
+ */
+export async function fetchClientAnalytics(
+  clientId: string,
+  period: 'week' | 'month' | 'quarter' | 'year' = 'month'
+): Promise<ClientAnalyticsData> {
+  const response = await fetch(
+    `${API_BASE}/analytics/clients/${clientId}?period=${period}`,
+    {
+      headers: getHeaders()
+    }
+  );
+  return handleResponse<ClientAnalyticsData>(response);
+}
