@@ -3,7 +3,7 @@
  * Lista de workouts asignados con filtros y agrupación
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,32 @@ import {
   FlatList,
   RefreshControl,
   SectionList,
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isToday, isTomorrow, parseISO, isThisWeek, isPast } from 'date-fns';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { WorkoutAssignment, WorkoutStatus } from '../types/workout';
-import { MOCK_WORKOUT_ASSIGNMENTS } from '../lib/mock-workouts';
+import { WorkoutStatus } from '../types/workout';
+import { fetchMyWorkouts, WorkoutAssignment as ApiWorkoutAssignment } from '../lib/api';
 import WorkoutCard from '../components/WorkoutCard';
 import FilterTabs from '../components/FilterTabs';
 import { Colors, Typography, Spacing } from '../constants/theme';
+
+// Map API assignment to UI workout assignment
+interface WorkoutAssignment {
+  id: string;
+  workoutId: string;
+  workoutName: string;
+  assignedDate: string;
+  status: WorkoutStatus;
+  estimatedDuration: number;
+  exerciseCount: number;
+  thumbnailUrl?: string;
+  completedAt?: Date;
+}
 
 type FilterOption = 'all' | WorkoutStatus;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -30,18 +46,64 @@ interface WorkoutSection {
   data: WorkoutAssignment[];
 }
 
+// Convert API assignment to UI assignment
+function mapApiToUiAssignment(apiAssignment: ApiWorkoutAssignment): WorkoutAssignment {
+  return {
+    id: apiAssignment.id,
+    workoutId: apiAssignment.workoutId,
+    workoutName: apiAssignment.workoutName,
+    assignedDate: apiAssignment.assignedDate,
+    status: apiAssignment.status as WorkoutStatus,
+    estimatedDuration: apiAssignment.durationMinutes || 45,
+    exerciseCount: apiAssignment.exerciseCount,
+    thumbnailUrl: undefined,
+    completedAt: apiAssignment.completedAt ? new Date(apiAssignment.completedAt) : undefined,
+  };
+}
+
 export default function WorkoutsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [selectedFilter, setSelectedFilter] = useState<FilterOption>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [workouts, setWorkouts] = useState<WorkoutAssignment[]>([]);
+
+  // Load workouts from API
+  const loadWorkouts = useCallback(async () => {
+    try {
+      setError(null);
+      const apiWorkouts = await fetchMyWorkouts();
+      const mappedWorkouts = apiWorkouts.map(mapApiToUiAssignment);
+      setWorkouts(mappedWorkouts);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar workouts';
+      setError(errorMessage);
+      console.error('Error loading workouts:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load workouts on mount
+  useEffect(() => {
+    loadWorkouts();
+  }, [loadWorkouts]);
+
+  // Reload workouts when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadWorkouts();
+    }, [loadWorkouts])
+  );
 
   // Filter workouts based on selected filter
   const filteredWorkouts = useMemo(() => {
     if (selectedFilter === 'all') {
-      return MOCK_WORKOUT_ASSIGNMENTS;
+      return workouts;
     }
-    return MOCK_WORKOUT_ASSIGNMENTS.filter(w => w.status === selectedFilter);
-  }, [selectedFilter]);
+    return workouts.filter(w => w.status === selectedFilter);
+  }, [workouts, selectedFilter]);
 
   // Group workouts into sections
   const sections: WorkoutSection[] = useMemo(() => {
@@ -76,23 +138,21 @@ export default function WorkoutsScreen() {
   // Calculate counts for filter tabs
   const filterCounts = useMemo(() => {
     return {
-      all: MOCK_WORKOUT_ASSIGNMENTS.length,
-      pending: MOCK_WORKOUT_ASSIGNMENTS.filter(w => w.status === 'pending').length,
-      in_progress: MOCK_WORKOUT_ASSIGNMENTS.filter(w => w.status === 'in_progress').length,
-      completed: MOCK_WORKOUT_ASSIGNMENTS.filter(w => w.status === 'completed').length,
+      all: workouts.length,
+      pending: workouts.filter(w => w.status === 'pending').length,
+      in_progress: workouts.filter(w => w.status === 'in_progress').length,
+      completed: workouts.filter(w => w.status === 'completed').length,
     };
-  }, []);
+  }, [workouts]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await loadWorkouts();
+    setRefreshing(false);
   };
 
   const handleWorkoutPress = (workout: WorkoutAssignment) => {
-    navigation.navigate('WorkoutDetail', { workoutId: workout.workoutId });
+    navigation.navigate('WorkoutDetail', { assignmentId: workout.id });
   };
 
   const renderSectionHeader = ({ section }: { section: WorkoutSection }) => (
@@ -136,6 +196,44 @@ export default function WorkoutsScreen() {
     };
     return labels[filter];
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <FilterTabs
+          selectedFilter={selectedFilter}
+          onFilterChange={setSelectedFilter}
+          counts={filterCounts}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.amber} />
+          <Text style={styles.loadingText}>Cargando workouts...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <FilterTabs
+          selectedFilter={selectedFilter}
+          onFilterChange={setSelectedFilter}
+          counts={filterCounts}
+        />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>Error al cargar workouts</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadWorkouts}>
+            <Text style={styles.retryButtonText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -218,5 +316,51 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     textAlign: 'center',
     lineHeight: Typography.lineHeight.relaxed * Typography.base,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing[6],
+  },
+  loadingText: {
+    fontSize: Typography.base,
+    color: Colors.textSecondary,
+    marginTop: Spacing[4],
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing[6],
+  },
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: Spacing[4],
+  },
+  errorTitle: {
+    fontSize: Typography.xl,
+    fontWeight: Typography.semibold,
+    color: Colors.primary,
+    textAlign: 'center',
+    marginBottom: Spacing[2],
+  },
+  errorMessage: {
+    fontSize: Typography.base,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginBottom: Spacing[4],
+    lineHeight: Typography.lineHeight.relaxed * Typography.base,
+  },
+  retryButton: {
+    backgroundColor: Colors.amber,
+    paddingHorizontal: Spacing[6],
+    paddingVertical: Spacing[3],
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: Typography.base,
+    fontWeight: Typography.semibold,
+    color: Colors.textWhite,
   },
 });

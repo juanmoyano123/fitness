@@ -18,7 +18,7 @@ import WorkoutDetailScreen from '../screens/WorkoutDetailScreen';
 // Navigation Types
 export type RootStackParamList = {
   Main: undefined;
-  WorkoutDetail: { workoutId: string };
+  WorkoutDetail: { assignmentId: string };
 };
 
 export type MainTabsParamList = {
