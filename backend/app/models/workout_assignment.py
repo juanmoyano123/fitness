@@ -38,8 +38,8 @@ class WorkoutAssignment(db.Model):
     workout = db.relationship('Workout', back_populates='assignments')
     client = db.relationship('Client', back_populates='assignments')
     trainer = db.relationship('Trainer', back_populates='assignments')
-    # One-to-one with WorkoutLog (when completed)
-    workout_log = db.relationship('WorkoutLog', back_populates='assignment', uselist=False, cascade='all, delete-orphan')
+    # One-to-one with WorkoutLog (when completed) - passive delete
+    workout_log = db.relationship('WorkoutLog', back_populates='assignment', uselist=False, passive_deletes=True)
 
     def to_dict(self, include_workout=True):
         """Convert assignment to dictionary representation"""

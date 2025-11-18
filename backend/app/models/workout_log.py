@@ -10,7 +10,7 @@ class WorkoutLog(db.Model):
     __tablename__ = 'workout_logs'
 
     id = db.Column(db.Integer, primary_key=True)
-    assignment_id = db.Column(db.Integer, db.ForeignKey('workout_assignments.id'), nullable=True, index=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('workout_assignments.id', ondelete='SET NULL'), nullable=True, index=True)
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
     workout_id = db.Column(db.Integer, db.ForeignKey('workouts.id'), nullable=False, index=True)
 
