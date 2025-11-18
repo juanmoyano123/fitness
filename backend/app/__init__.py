@@ -33,12 +33,17 @@ def create_app():
     CORS(app, origins=os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(','))
 
     # Register blueprints (routes)
-    from app.routes import auth_bp, clients_bp, workouts_bp, assignments_bp, analytics_bp, workout_logs_bp
+    from app.routes import (
+        auth_bp, clients_bp, workouts_bp, assignments_bp,
+        analytics_bp, trainers_bp, clients_analytics_bp, workout_logs_bp
+    )
     app.register_blueprint(auth_bp)
     app.register_blueprint(clients_bp)
     app.register_blueprint(workouts_bp)
     app.register_blueprint(assignments_bp)
-    app.register_blueprint(analytics_bp)
+    app.register_blueprint(analytics_bp)  # FASE 6 compatibility
+    app.register_blueprint(trainers_bp)  # FASE 5 spec
+    app.register_blueprint(clients_analytics_bp)  # FASE 5 spec
     app.register_blueprint(workout_logs_bp)
 
     # Create tables (for development only)

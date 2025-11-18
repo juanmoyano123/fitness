@@ -1,5 +1,8 @@
 """
 Analytics Routes - Dashboard stats and client metrics (FASE 5)
+Endpoints según especificación FASE 5:
+- GET /api/trainers/me/analytics
+- GET /api/clients/:id/analytics
 """
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
@@ -8,6 +11,9 @@ from app import db
 from app.models import Client, WorkoutAssignment, Trainer
 from sqlalchemy import func
 
+# FASE 5: trainers blueprint (no analytics blueprint)
+trainers_bp = Blueprint('trainers', __name__, url_prefix='/api/trainers')
+# Keep analytics_bp for backward compatibility with FASE 6 work
 analytics_bp = Blueprint('analytics', __name__, url_prefix='/api/analytics')
 
 
@@ -22,11 +28,13 @@ def require_trainer():
     return None
 
 
-@analytics_bp.route('/dashboard', methods=['GET'])
+@trainers_bp.route('/me/analytics', methods=['GET'])
 @jwt_required()
-def get_dashboard_analytics():
+def get_trainer_analytics():
     """
-    Get trainer dashboard analytics
+    Get trainer dashboard analytics (FASE 5 spec)
+
+    Endpoint: GET /api/trainers/me/analytics
 
     Response:
     {
