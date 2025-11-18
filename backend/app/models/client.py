@@ -25,7 +25,7 @@ class Client(db.Model):
     gender = db.Column(db.String(30))  # "male" | "female" | "other" | "prefer-not-to-say"
     age = db.Column(db.Integer)
     goals = db.Column(db.Text)
-    avatar = db.Column(db.String(500))  # URL to avatar image
+    avatar_url = db.Column('avatar_url', db.String(500))  # URL to avatar image (matches schema.sql)
 
     # Invitation tracking
     invite_token = db.Column(db.String(255))  # JWT token for registration link
@@ -125,7 +125,8 @@ class Client(db.Model):
             'gender': self.gender,
             'age': self.age,
             'goals': self.goals,
-            'avatar': self.avatar,
+            'avatar': self.avatar_url,  # Frontend expects 'avatar'
+            'avatar_url': self.avatar_url,  # Backend compatibility
             'registered_at': self.registered_at.isoformat() if self.registered_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'createdAt': self.created_at.isoformat() if self.created_at else None,  # FASE 1 compatibility

@@ -133,7 +133,7 @@ def create_workout():
                 workout_exercise = WorkoutExercise(
                     workout_id=workout.id,
                     exercise_id=ex_data['exercise_id'],
-                    order=ex_data.get('order', 0),
+                    order_index=ex_data.get('order') or ex_data.get('order_index', 0),  # Accept both
                     sets=ex_data.get('sets', 3),
                     reps=ex_data.get('reps', 10),
                     rest_seconds=ex_data.get('rest_seconds', 60),

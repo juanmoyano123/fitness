@@ -138,7 +138,7 @@ def create_client():
             gender=data.get('gender'),  # FASE 1 compatibility
             age=data.get('age'),  # FASE 1 compatibility
             goals=data.get('goals'),  # FASE 1 compatibility
-            avatar=data.get('avatar')  # FASE 1 compatibility
+            avatar_url=data.get('avatar') or data.get('avatar_url')  # Accept both field names
         )
 
         db.session.add(client)
@@ -208,8 +208,8 @@ def update_client(client_id):
             client.age = data['age']
         if 'goals' in data:
             client.goals = data['goals']
-        if 'avatar' in data:
-            client.avatar = data['avatar']
+        if 'avatar' in data or 'avatar_url' in data:
+            client.avatar_url = data.get('avatar') or data.get('avatar_url')
 
         db.session.commit()
 

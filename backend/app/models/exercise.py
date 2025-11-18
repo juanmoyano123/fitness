@@ -14,36 +14,31 @@ class Exercise(db.Model):
     name = db.Column(db.String(200), nullable=False, index=True)
     body_part = db.Column(db.String(100))
     equipment = db.Column(db.String(100))
-    target = db.Column(db.String(100))
     gif_url = db.Column(db.String(500))
+    target_muscle = db.Column('target_muscle', db.String(100))  # Matches schema.sql
+    secondary_muscles = db.Column(db.ARRAY(db.String))  # Matches schema.sql (PostgreSQL array)
     instructions = db.Column(db.Text)
+    is_custom = db.Column(db.Boolean, default=False)  # Matches schema.sql
+    trainer_id = db.Column(db.Integer, db.ForeignKey('trainers.id'))  # For custom exercises (schema.sql)
 
     # Additional fields for frontend compatibility (FASE 1 & 2)
     name_es = db.Column(db.String(200))  # Spanish name
     category = db.Column(db.String(50))  # "strength" | "cardio" | "flexibility" | "balance"
     muscle_group = db.Column(db.String(100))  # Display name for frontend
-    equipment_list = db.Column(db.Text)  # JSON array as string
     difficulty = db.Column(db.String(20))  # "beginner" | "intermediate" | "advanced"
     video_url = db.Column(db.String(500))  # Optional video URL
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     workout_exercises = db.relationship('WorkoutExercise', back_populates='exercise', lazy='dynamic')
+    trainer = db.relationship('Trainer', backref='custom_exercises')  # For custom exercises
 
     def to_dict(self):
         """Convert exercise to dictionary representation"""
-        import json
-
-        # Parse equipment list if it's JSON string
-        equipment_array = []
-        if self.equipment_list:
-            try:
-                equipment_array = json.loads(self.equipment_list)
-            except:
-                equipment_array = [self.equipment] if self.equipment else []
-        elif self.equipment:
-            equipment_array = [self.equipment]
+        # Equipment as array (frontend expects array)
+        equipment_array = [self.equipment] if self.equipment else []
 
         return {
             'id': self.id,
@@ -52,14 +47,18 @@ class Exercise(db.Model):
             'nameEs': self.name_es or self.name,  # FASE 1 compatibility
             'body_part': self.body_part,
             'category': self.category,  # FASE 1 compatibility
-            'muscleGroup': self.muscle_group or self.body_part,  # FASE 1 compatibility
+            'muscleGroup': self.muscle_group or self.body_part or self.target_muscle,  # FASE 1 compatibility
             'equipment': equipment_array,  # FASE 1 compatibility (array)
-            'target': self.target,
+            'target': self.target_muscle,  # Backward compatibility
+            'targetMuscle': self.target_muscle,  # Schema.sql field
+            'secondaryMuscles': self.secondary_muscles or [],  # Schema.sql field
             'difficulty': self.difficulty,  # FASE 1 compatibility
             'gif_url': self.gif_url,
             'gifUrl': self.gif_url,  # FASE 1 compatibility
             'videoUrl': self.video_url,  # FASE 1 compatibility
             'instructions': self.instructions,
+            'isCustom': self.is_custom,  # Schema.sql field
+            'trainerId': self.trainer_id if self.is_custom else None,  # Schema.sql field
         }
 
     def __repr__(self):

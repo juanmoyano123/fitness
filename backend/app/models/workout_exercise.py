@@ -13,7 +13,7 @@ class WorkoutExercise(db.Model):
     exercise_id = db.Column(db.Integer, db.ForeignKey('exercises.id'), nullable=False, index=True)
 
     # Exercise prescription
-    order = db.Column(db.Integer, nullable=False)  # Order in workout
+    order_index = db.Column('order_index', db.Integer, nullable=False)  # Order in workout (matches schema.sql)
     sets = db.Column(db.Integer, default=3)
     reps = db.Column(db.Integer, default=10)
     rest_seconds = db.Column(db.Integer, default=60)
@@ -31,7 +31,8 @@ class WorkoutExercise(db.Model):
             'workout_id': self.workout_id,
             'exercise_id': self.exercise_id,
             'exerciseId': str(self.exercise_id),  # FASE 1 compatibility (as string)
-            'order': self.order,
+            'order': self.order_index,  # Frontend expects 'order'
+            'order_index': self.order_index,  # Backend compatibility
             'sets': self.sets,
             'reps': self.reps,
             'rest_seconds': self.rest_seconds,
