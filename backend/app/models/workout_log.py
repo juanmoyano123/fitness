@@ -10,6 +10,7 @@ class WorkoutLog(db.Model):
     __tablename__ = 'workout_logs'
 
     id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('workout_assignments.id'), nullable=True, index=True)
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
     workout_id = db.Column(db.Integer, db.ForeignKey('workouts.id'), nullable=False, index=True)
 
@@ -34,6 +35,7 @@ class WorkoutLog(db.Model):
 
         return {
             'id': self.id,
+            'assignment_id': self.assignment_id,
             'client_id': self.client_id,
             'workout_id': self.workout_id,
             'workout': self.workout.to_dict() if self.workout else None,
