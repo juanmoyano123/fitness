@@ -37,8 +37,8 @@ class Client(db.Model):
 
     # Relationships
     trainer = db.relationship('Trainer', back_populates='clients')
-    workout_logs = db.relationship('WorkoutLog', back_populates='client', lazy='dynamic', cascade='all, delete-orphan')
     assignments = db.relationship('WorkoutAssignment', back_populates='client', lazy='dynamic', cascade='all, delete-orphan')
+    # Note: workout_logs accessed via assignments.workout_logs (schema.sql structure)
 
     def set_password(self, password: str):
         """Hash and set password using bcrypt with cost factor 12"""
@@ -62,15 +62,11 @@ class Client(db.Model):
         # Calculate stats
         if include_stats:
             # Import here to avoid circular imports
-            from app.models.workout_log import WorkoutLog
             from app.models.workout_assignment import WorkoutAssignment
 
             # Filter by period if specified (for FASE 5 analytics compatibility)
             if stats_period_days:
                 period_start = datetime.utcnow() - timedelta(days=stats_period_days)
-                total_logs = self.workout_logs.filter(
-                    WorkoutLog.completed_at >= period_start
-                ).count()
                 total_assigned = self.assignments.filter(
                     WorkoutAssignment.assigned_date >= period_start
                 ).count()
@@ -81,20 +77,24 @@ class Client(db.Model):
                 ).count()
             else:
                 # All time stats (default for FASE 1 compatibility)
-                total_logs = self.workout_logs.count()
                 total_assigned = self.assignments.count()
                 completed_assigned = self.assignments.filter_by(status='completed').count()
+
+            # total_logs same as completed_assigned (schema.sql structure)
+            total_logs = completed_assigned
 
             # Calculate adherence (compatible with FASE 1 mock and FASE 5 analytics)
             adherence = (completed_assigned / total_assigned * 100) if total_assigned > 0 else 0
 
-            # Get last activity (compatible with FASE 5 analytics)
-            last_log = self.workout_logs.order_by(
-                WorkoutLog.completed_at.desc()
+            # Get last activity from completed assignments (compatible with FASE 5 analytics)
+            last_assignment = self.assignments.filter(
+                WorkoutAssignment.completed_at.isnot(None)
+            ).order_by(
+                WorkoutAssignment.completed_at.desc()
             ).first()
 
-            if last_log and last_log.completed_at:
-                delta = datetime.utcnow() - last_log.completed_at
+            if last_assignment and last_assignment.completed_at:
+                delta = datetime.utcnow() - last_assignment.completed_at
                 if delta.days == 0:
                     hours = delta.seconds // 3600
                     if hours == 0:
