@@ -37,6 +37,7 @@ export const Colors = {
   textTertiary: '#605a57',
   textLight: '#9CA3AF',
   textWhite: '#ffffff',
+  white: '#ffffff',  // Alias for consistency
 };
 
 export const Typography = {
@@ -46,6 +47,7 @@ export const Typography = {
   base: 16,
   lg: 18,
   xl: 20,
+  xxl: 24,      // Alias
   '2xl': 24,
   '3xl': 30,
   '4xl': 36,
