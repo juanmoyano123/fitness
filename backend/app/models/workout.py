@@ -14,6 +14,11 @@ class Workout(db.Model):
     description = db.Column(db.Text)
     trainer_id = db.Column(db.Integer, db.ForeignKey('trainers.id'), nullable=False, index=True)
 
+    # Additional fields for frontend compatibility (FASE 1 & 2)
+    category = db.Column(db.String(50))  # "strength" | "cardio" | "hybrid" | "flexibility"
+    difficulty = db.Column(db.String(20))  # "beginner" | "intermediate" | "advanced"
+    duration = db.Column(db.Integer)  # minutes
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -30,11 +35,18 @@ class Workout(db.Model):
             'name': self.name,
             'description': self.description,
             'trainer_id': self.trainer_id,
+            'category': self.category,
+            'difficulty': self.difficulty,
+            'duration': self.duration,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,  # FASE 1 compatibility
+            'createdBy': f'trainer-{self.trainer_id}',  # FASE 1 compatibility
         }
 
         if include_exercises:
-            data['exercises'] = [we.to_dict() for we in self.exercises.all()]
+            exercises_list = [we.to_dict() for we in self.exercises.all()]
+            data['exercises'] = exercises_list
+            data['exerciseCount'] = len(exercises_list)  # FASE 2 compatibility
 
         return data
 

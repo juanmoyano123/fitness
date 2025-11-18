@@ -17,25 +17,33 @@ class WorkoutExercise(db.Model):
     sets = db.Column(db.Integer, default=3)
     reps = db.Column(db.Integer, default=10)
     rest_seconds = db.Column(db.Integer, default=60)
+    weight = db.Column(db.Float)  # Optional weight in kg
     notes = db.Column(db.Text)
 
     # Relationships
     workout = db.relationship('Workout', back_populates='exercises')
     exercise = db.relationship('Exercise', back_populates='workout_exercises')
 
-    def to_dict(self):
+    def to_dict(self, include_exercise=True):
         """Convert workout exercise to dictionary representation"""
-        return {
+        data = {
             'id': self.id,
             'workout_id': self.workout_id,
             'exercise_id': self.exercise_id,
-            'exercise': self.exercise.to_dict() if self.exercise else None,
+            'exerciseId': str(self.exercise_id),  # FASE 1 compatibility (as string)
             'order': self.order,
             'sets': self.sets,
             'reps': self.reps,
             'rest_seconds': self.rest_seconds,
+            'rest': self.rest_seconds,  # FASE 1 compatibility
+            'weight': self.weight,  # FASE 1 compatibility
             'notes': self.notes,
         }
+
+        if include_exercise and self.exercise:
+            data['exercise'] = self.exercise.to_dict()
+
+        return data
 
     def __repr__(self):
         return f'<WorkoutExercise workout={self.workout_id} exercise={self.exercise_id}>'
