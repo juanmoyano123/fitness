@@ -37,6 +37,9 @@ def create_app():
         auth_bp, clients_bp, workouts_bp, assignments_bp,
         analytics_bp, trainers_bp, clients_analytics_bp, workout_logs_bp
     )
+    from app.routes.health import health_bp
+
+    app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(clients_bp)
     app.register_blueprint(workouts_bp)

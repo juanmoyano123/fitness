@@ -21,15 +21,16 @@ def health_check():
         db_status = f'error: {str(e)}'
 
     return jsonify({
-        'status': 'ok',
-        'database': db_status
+        'status': 'healthy',
+        'database': db_status,
+        'service': 'FitCompass Pro API'
     }), 200
 
 
 @health_bp.route('/api/health', methods=['GET'])
 def api_health_check():
     """
-    API health check endpoint
+    API health check endpoint with version info
     """
     try:
         # Test database connection
@@ -39,7 +40,8 @@ def api_health_check():
         db_status = f'error: {str(e)}'
 
     return jsonify({
-        'status': 'ok',
+        'status': 'healthy',
         'database': db_status,
+        'service': 'FitCompass Pro API',
         'version': '1.0.0'
     }), 200
