@@ -32,6 +32,7 @@ class Client(db.Model):
     # Relationships
     trainer = db.relationship('Trainer', back_populates='clients')
     workout_logs = db.relationship('WorkoutLog', back_populates='client', lazy='dynamic', cascade='all, delete-orphan')
+    assignments = db.relationship('WorkoutAssignment', back_populates='client', lazy='dynamic', cascade='all, delete-orphan')
 
     def set_password(self, password: str):
         """Hash and set password using bcrypt with cost factor 12"""

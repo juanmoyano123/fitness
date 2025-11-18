@@ -35,11 +35,11 @@ class WorkoutAssignment(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    workout = db.relationship('Workout', backref='assignments')
-    client = db.relationship('Client', backref='assignments')
-    trainer = db.relationship('Trainer', backref='assignments')
+    workout = db.relationship('Workout', back_populates='assignments')
+    client = db.relationship('Client', back_populates='assignments')
+    trainer = db.relationship('Trainer', back_populates='assignments')
     # One-to-one with WorkoutLog (when completed)
-    workout_log = db.relationship('WorkoutLog', backref='assignment', uselist=False, cascade='all, delete-orphan')
+    workout_log = db.relationship('WorkoutLog', back_populates='assignment', uselist=False, cascade='all, delete-orphan')
 
     def to_dict(self, include_workout=True):
         """Convert assignment to dictionary representation"""

@@ -26,6 +26,7 @@ class WorkoutLog(db.Model):
     notes = db.Column(db.Text)
 
     # Relationships
+    assignment = db.relationship('WorkoutAssignment', back_populates='workout_log')
     client = db.relationship('Client', back_populates='workout_logs')
     workout = db.relationship('Workout', back_populates='logs')
 

@@ -21,6 +21,7 @@ class Workout(db.Model):
     trainer = db.relationship('Trainer', back_populates='workouts')
     exercises = db.relationship('WorkoutExercise', back_populates='workout', lazy='dynamic', cascade='all, delete-orphan')
     logs = db.relationship('WorkoutLog', back_populates='workout', lazy='dynamic', cascade='all, delete-orphan')
+    assignments = db.relationship('WorkoutAssignment', back_populates='workout', lazy='dynamic', cascade='all, delete-orphan')
 
     def to_dict(self, include_exercises=False):
         """Convert workout to dictionary representation"""
