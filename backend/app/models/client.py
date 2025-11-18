@@ -2,7 +2,7 @@
 Client Model - Represents a client/athlete being trained
 """
 from app import db
-from datetime import datetime
+from datetime import datetime, timedelta
 import bcrypt
 
 
@@ -51,27 +51,66 @@ class Client(db.Model):
             return False
         return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
 
-    def to_dict(self, include_stats=False):
-        """Convert client to dictionary representation"""
-        from datetime import datetime
+    def to_dict(self, include_stats=False, stats_period_days=None):
+        """
+        Convert client to dictionary representation
 
+        Args:
+            include_stats: Include workout statistics
+            stats_period_days: Period for stats calculation (None = all time, e.g. 7, 30)
+        """
         # Calculate stats
-        total_logs = self.workout_logs.count() if include_stats else 0
-        total_assigned = self.assignments.count() if include_stats else 0
-        completed_assigned = self.assignments.filter_by(status='completed').count() if include_stats else 0
+        if include_stats:
+            # Import here to avoid circular imports
+            from app.models.workout_log import WorkoutLog
+            from app.models.workout_assignment import WorkoutAssignment
 
-        # Calculate adherence (compatible with FASE 1 mock)
-        adherence = (completed_assigned / total_assigned * 100) if total_assigned > 0 else 0
-
-        # Get last activity
-        last_log = self.workout_logs.order_by(db.desc('completed_at')).first() if include_stats else None
-        if last_log and last_log.completed_at:
-            delta = datetime.utcnow() - last_log.completed_at
-            if delta.days == 0:
-                last_activity = "Hace {} horas".format(delta.seconds // 3600)
+            # Filter by period if specified (for FASE 5 analytics compatibility)
+            if stats_period_days:
+                period_start = datetime.utcnow() - timedelta(days=stats_period_days)
+                total_logs = self.workout_logs.filter(
+                    WorkoutLog.completed_at >= period_start
+                ).count()
+                total_assigned = self.assignments.filter(
+                    WorkoutAssignment.assigned_date >= period_start
+                ).count()
+                completed_assigned = self.assignments.filter_by(
+                    status='completed'
+                ).filter(
+                    WorkoutAssignment.assigned_date >= period_start
+                ).count()
             else:
-                last_activity = "Hace {} días".format(delta.days)
+                # All time stats (default for FASE 1 compatibility)
+                total_logs = self.workout_logs.count()
+                total_assigned = self.assignments.count()
+                completed_assigned = self.assignments.filter_by(status='completed').count()
+
+            # Calculate adherence (compatible with FASE 1 mock and FASE 5 analytics)
+            adherence = (completed_assigned / total_assigned * 100) if total_assigned > 0 else 0
+
+            # Get last activity (compatible with FASE 5 analytics)
+            last_log = self.workout_logs.order_by(
+                WorkoutLog.completed_at.desc()
+            ).first()
+
+            if last_log and last_log.completed_at:
+                delta = datetime.utcnow() - last_log.completed_at
+                if delta.days == 0:
+                    hours = delta.seconds // 3600
+                    if hours == 0:
+                        last_activity = "Hace minutos"
+                    else:
+                        last_activity = "Hace {} horas".format(hours)
+                elif delta.days == 1:
+                    last_activity = "Hace 1 día"
+                else:
+                    last_activity = "Hace {} días".format(delta.days)
+            else:
+                last_activity = "Nunca"
         else:
+            total_logs = 0
+            total_assigned = 0
+            adherence = 0
             last_activity = "Nunca"
 
         data = {

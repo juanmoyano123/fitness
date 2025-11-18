@@ -127,14 +127,18 @@ def create_client():
                 'error': 'Client with this email already exists'
             }), 409
 
-        # Create new client
+        # Create new client (compatible with FASE 1 frontend)
         client = Client(
             email=email,
             name=name,
             trainer_id=trainer_id,
             phone=data.get('phone'),
             notes=data.get('notes'),
-            is_active=True
+            is_active=True,
+            gender=data.get('gender'),  # FASE 1 compatibility
+            age=data.get('age'),  # FASE 1 compatibility
+            goals=data.get('goals'),  # FASE 1 compatibility
+            avatar=data.get('avatar')  # FASE 1 compatibility
         )
 
         db.session.add(client)
@@ -189,7 +193,7 @@ def update_client(client_id):
                 'error': 'No data provided'
             }), 400
 
-        # Update fields
+        # Update fields (compatible with FASE 1 frontend)
         if 'name' in data:
             client.name = data['name'].strip()
         if 'phone' in data:
@@ -198,6 +202,14 @@ def update_client(client_id):
             client.notes = data['notes']
         if 'is_active' in data:
             client.is_active = data['is_active']
+        if 'gender' in data:
+            client.gender = data['gender']
+        if 'age' in data:
+            client.age = data['age']
+        if 'goals' in data:
+            client.goals = data['goals']
+        if 'avatar' in data:
+            client.avatar = data['avatar']
 
         db.session.commit()
 

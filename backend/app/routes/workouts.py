@@ -114,11 +114,14 @@ def create_workout():
                 'error': 'Name is required'
             }), 400
 
-        # Create workout
+        # Create workout (compatible with FASE 1 & 2 frontend)
         workout = Workout(
             name=data['name'],
             description=data.get('description', ''),
-            trainer_id=trainer_id
+            trainer_id=trainer_id,
+            category=data.get('category'),  # FASE 1 compatibility
+            difficulty=data.get('difficulty'),  # FASE 1 compatibility
+            duration=data.get('duration')  # FASE 1 compatibility
         )
 
         db.session.add(workout)
@@ -134,6 +137,7 @@ def create_workout():
                     sets=ex_data.get('sets', 3),
                     reps=ex_data.get('reps', 10),
                     rest_seconds=ex_data.get('rest_seconds', 60),
+                    weight=ex_data.get('weight'),  # FASE 1 compatibility
                     notes=ex_data.get('notes')
                 )
                 db.session.add(workout_exercise)
@@ -179,11 +183,17 @@ def update_workout(workout_id):
                 'error': 'No data provided'
             }), 400
 
-        # Update fields
+        # Update fields (compatible with FASE 1 & 2 frontend)
         if 'name' in data:
             workout.name = data['name']
         if 'description' in data:
             workout.description = data['description']
+        if 'category' in data:
+            workout.category = data['category']
+        if 'difficulty' in data:
+            workout.difficulty = data['difficulty']
+        if 'duration' in data:
+            workout.duration = data['duration']
 
         db.session.commit()
 
