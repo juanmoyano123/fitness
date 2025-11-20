@@ -6,19 +6,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 from app import db
 from app.models import Client, Trainer
+from app.utils.auth_helpers import require_trainer, verify_resource_ownership
 
 clients_bp = Blueprint('clients', __name__, url_prefix='/api/clients')
-
-
-def require_trainer():
-    """Helper to verify user is a trainer"""
-    claims = get_jwt()
-    if claims.get('type') != 'trainer':
-        return jsonify({
-            'success': False,
-            'error': 'Trainer access required'
-        }), 403
-    return None
 
 
 @clients_bp.route('', methods=['GET'])
@@ -304,16 +294,31 @@ def invite_client(client_id):
         frontend_url = os.getenv('FRONTEND_MOBILE_URL', 'exp://localhost:8081')
         registration_link = f"{frontend_url}/register?token={invite_token}"
 
-        # TODO: Send actual email using Flask-Mail
-        # For now, we'll return the invite link in the response for testing
-        # In production, this would send an email and not expose the link
+        # Send invitation email
+        from app.services.email_service import EmailService
+        email_service = EmailService()
+        email_sent = email_service.send_client_invitation(
+            client_email=client.email,
+            client_name=client.name,
+            trainer_name=trainer.name,
+            invite_link=registration_link
+        )
 
-        return jsonify({
+        # Return response
+        response = {
             'success': True,
-            'message': f'Invitation prepared for {client.email}',
-            'invite_link': registration_link,  # Only for development/testing
             'client': client.to_dict()
-        }), 200
+        }
+
+        if email_sent:
+            response['message'] = f'Invitación enviada a {client.email}'
+        else:
+            # If SendGrid is not configured, return the link for manual sharing
+            response['message'] = f'Invitación preparada (email no configurado)'
+            response['invite_link'] = registration_link  # For development/testing
+            response['note'] = 'SendGrid no está configurado. Comparte este link manualmente.'
+
+        return jsonify(response), 200
 
     except Exception as e:
         db.session.rollback()

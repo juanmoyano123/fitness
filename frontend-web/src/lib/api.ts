@@ -53,7 +53,49 @@ class ApiClient {
   }
 
   /**
-   * Make an authenticated API request
+   * Fetch with retry logic and timeout
+   */
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+    retries = 3,
+    timeout = 30000
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+
+        // Don't retry on abort (timeout)
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout - por favor intenta de nuevo');
+        }
+
+        // Don't retry on last attempt
+        if (i === retries - 1) {
+          throw error;
+        }
+
+        // Exponential backoff
+        const delay = Math.pow(2, i) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    throw new Error('Max retries reached');
+  }
+
+  /**
+   * Make an authenticated API request with retry logic and timeout
    */
   private async request<T = any>(
     endpoint: string,
@@ -70,20 +112,37 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        ...options,
-        headers,
-      });
+      const response = await this.fetchWithRetry(
+        `${this.baseUrl}${endpoint}`,
+        { ...options, headers }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP ${response.status}`);
+        // Provide user-friendly error messages
+        if (response.status === 401) {
+          throw new Error('Sesión expirada. Por favor inicia sesión de nuevo.');
+        } else if (response.status === 403) {
+          throw new Error('No tienes permiso para realizar esta acción.');
+        } else if (response.status === 404) {
+          throw new Error('Recurso no encontrado.');
+        } else if (response.status >= 500) {
+          throw new Error('Error del servidor. Por favor intenta más tarde.');
+        }
+
+        throw new Error(data.error || `Error HTTP ${response.status}`);
       }
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('API request failed:', error);
+
+      // Network error
+      if (error.message === 'Failed to fetch') {
+        throw new Error('Error de conexión. Verifica tu internet.');
+      }
+
       throw error;
     }
   }
