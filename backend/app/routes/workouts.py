@@ -6,20 +6,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 from app import db
 from app.models import Workout, WorkoutExercise, WorkoutAssignment, Client, Exercise
+from app.utils.auth_helpers import require_trainer, verify_resource_ownership, verify_client_resource_access
 
 workouts_bp = Blueprint('workouts', __name__, url_prefix='/api/workouts')
 assignments_bp = Blueprint('assignments', __name__, url_prefix='/api/assignments')
-
-
-def require_trainer():
-    """Helper to verify user is a trainer"""
-    claims = get_jwt()
-    if claims.get('type') != 'trainer':
-        return jsonify({
-            'success': False,
-            'error': 'Trainer access required'
-        }), 403
-    return None
 
 
 # ==================== WORKOUTS ENDPOINTS ====================
@@ -374,6 +364,11 @@ def update_assignment_status(assignment_id):
                 'success': False,
                 'error': 'Assignment not found'
             }), 404
+
+        # Verify access - trainers can only modify their clients' assignments, clients only their own
+        auth_error = verify_client_resource_access(assignment)
+        if auth_error:
+            return auth_error
 
         # Update status
         assignment.status = data['status']

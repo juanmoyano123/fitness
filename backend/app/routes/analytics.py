@@ -10,22 +10,12 @@ from datetime import datetime, timedelta
 from app import db
 from app.models import Client, WorkoutAssignment, Trainer
 from sqlalchemy import func
+from app.utils.auth_helpers import require_trainer, verify_client_access
 
 # FASE 5: trainers blueprint (no analytics blueprint)
 trainers_bp = Blueprint('trainers', __name__, url_prefix='/api/trainers')
 # Keep analytics_bp for backward compatibility with FASE 6 work
 analytics_bp = Blueprint('analytics', __name__, url_prefix='/api/analytics')
-
-
-def require_trainer():
-    """Helper to verify user is a trainer"""
-    claims = get_jwt()
-    if claims.get('type') != 'trainer':
-        return jsonify({
-            'success': False,
-            'error': 'Trainer access required'
-        }), 403
-    return None
 
 
 @trainers_bp.route('/me/analytics', methods=['GET'])
