@@ -15,6 +15,7 @@ from app.schemas import (
     WorkoutAssignmentCreateSchema,
     WorkoutAssignmentUpdateStatusSchema
 )
+from sqlalchemy.orm import selectinload, joinedload
 
 workouts_bp = Blueprint('workouts', __name__, url_prefix='/api/workouts')
 assignments_bp = Blueprint('assignments', __name__, url_prefix='/api/assignments')
@@ -43,8 +44,12 @@ def get_workouts(validated_query):
     try:
         trainer_id = get_jwt_identity()
 
-        # Base query
-        query = Workout.query.filter_by(trainer_id=trainer_id)
+        # Base query with EAGER LOADING to prevent N+1 queries
+        # Without eager loading: N*M queries (N workouts × M exercises each)
+        # With eager loading: 2 queries regardless of data size
+        query = Workout.query.options(
+            selectinload(Workout.exercises).joinedload(WorkoutExercise.exercise)
+        ).filter_by(trainer_id=trainer_id)
 
         # Search filter
         if 'search' in validated_query:
@@ -99,7 +104,13 @@ def get_workout(workout_id):
 
     try:
         trainer_id = get_jwt_identity()
-        workout = Workout.query.filter_by(id=workout_id, trainer_id=trainer_id).first()
+
+        # OPTIMIZED: Eager load exercises and exercise details to prevent N+1 queries
+        # Before: 1 (workout) + 1 (workout_exercises) + N (exercises) = 12 queries for 10 exercises
+        # After: 1-2 queries regardless of number of exercises
+        workout = Workout.query.options(
+            selectinload(Workout.exercises).joinedload(WorkoutExercise.exercise)
+        ).filter_by(id=workout_id, trainer_id=trainer_id).first()
 
         if not workout:
             return jsonify({
@@ -362,8 +373,15 @@ def get_client_assignments(client_id):
         claims = get_jwt()
         user_type = claims.get('type', 'trainer')
 
+        # OPTIMIZED: Eager load workout and exercise details to prevent N+1 queries
+        # Before: 1 + N (workouts) + N (workout_exercises) + N*M (exercises) = 71 queries for 10 assignments
+        # After: 2 queries regardless of number of assignments
+        base_query = WorkoutAssignment.query.options(
+            joinedload(WorkoutAssignment.workout).selectinload(Workout.exercises).joinedload(WorkoutExercise.exercise)
+        )
+
         if user_type == 'trainer':
-            assignments = WorkoutAssignment.query.filter_by(
+            assignments = base_query.filter_by(
                 client_id=client_id,
                 trainer_id=user_id
             ).all()
@@ -374,7 +392,7 @@ def get_client_assignments(client_id):
                     'success': False,
                     'error': 'Unauthorized'
                 }), 403
-            assignments = WorkoutAssignment.query.filter_by(client_id=client_id).all()
+            assignments = base_query.filter_by(client_id=client_id).all()
 
         return jsonify({
             'success': True,

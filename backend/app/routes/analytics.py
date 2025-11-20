@@ -9,7 +9,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timedelta
 from app import db
 from app.models import Client, WorkoutAssignment, Trainer
-from sqlalchemy import func
+from sqlalchemy import func, case
 from app.utils.auth_helpers import require_trainer, verify_client_access
 
 # FASE 5: trainers blueprint (no analytics blueprint)
@@ -108,28 +108,37 @@ def get_trainer_analytics():
             })
 
         # Client adherence breakdown
-        clients = Client.query.filter_by(trainer_id=trainer_id, is_active=True).all()
+        # OPTIMIZED: Single query with aggregations instead of N+1 queries
+        # Before: 1 + (N * 2) queries for N clients = 201 queries for 100 clients
+        # After: 1 query regardless of number of clients
+        clients_stats = db.session.query(
+            Client.id,
+            Client.name,
+            func.count(WorkoutAssignment.id).label('total_assigned'),
+            func.sum(
+                case((WorkoutAssignment.status == 'completed', 1), else_=0)
+            ).label('total_completed')
+        ).outerjoin(
+            WorkoutAssignment,
+            (WorkoutAssignment.client_id == Client.id) &
+            (WorkoutAssignment.assigned_date >= seven_days_ago)
+        ).filter(
+            Client.trainer_id == trainer_id,
+            Client.is_active == True
+        ).group_by(
+            Client.id,
+            Client.name
+        ).all()
+
+        # Process results
         clients_adherence = []
-
-        for client in clients:
-            assigned = WorkoutAssignment.query.filter_by(
-                client_id=client.id
-            ).filter(
-                WorkoutAssignment.assigned_date >= seven_days_ago
-            ).count()
-
-            completed = WorkoutAssignment.query.filter_by(
-                client_id=client.id,
-                status='completed'
-            ).filter(
-                WorkoutAssignment.assigned_date >= seven_days_ago
-            ).count()
-
+        for client_id, name, assigned, completed in clients_stats:
+            assigned = assigned or 0
+            completed = completed or 0
             adherence = (completed / assigned * 100) if assigned > 0 else 0
-
             clients_adherence.append({
-                'clientId': client.id,
-                'name': client.name,
+                'clientId': client_id,
+                'name': name,
                 'adherence': round(adherence, 1),
                 'workoutsCompleted': completed,
                 'workoutsAssigned': assigned
