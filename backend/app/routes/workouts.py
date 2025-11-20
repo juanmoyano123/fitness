@@ -7,6 +7,14 @@ from datetime import datetime
 from app import db
 from app.models import Workout, WorkoutExercise, WorkoutAssignment, Client, Exercise
 from app.utils.auth_helpers import require_trainer, verify_resource_ownership, verify_client_resource_access
+from app.utils.validation_helpers import validate_json, validate_query
+from app.schemas import (
+    WorkoutCreateSchema,
+    WorkoutUpdateSchema,
+    WorkoutQuerySchema,
+    WorkoutAssignmentCreateSchema,
+    WorkoutAssignmentUpdateStatusSchema
+)
 
 workouts_bp = Blueprint('workouts', __name__, url_prefix='/api/workouts')
 assignments_bp = Blueprint('assignments', __name__, url_prefix='/api/assignments')
@@ -16,19 +24,62 @@ assignments_bp = Blueprint('assignments', __name__, url_prefix='/api/assignments
 
 @workouts_bp.route('', methods=['GET'])
 @jwt_required()
-def get_workouts():
-    """Get all workouts for the authenticated trainer"""
+@validate_query(WorkoutQuerySchema)
+def get_workouts(validated_query):
+    """
+    Get all workouts for the authenticated trainer with pagination
+
+    Query params:
+    - page: page number (default: 1)
+    - per_page: items per page (default: 20, max: 100)
+    - search: search by name
+    - category: filter by category
+    - difficulty: filter by difficulty
+    """
     error_response = require_trainer()
     if error_response:
         return error_response
 
     try:
         trainer_id = get_jwt_identity()
-        workouts = Workout.query.filter_by(trainer_id=trainer_id).all()
+
+        # Base query
+        query = Workout.query.filter_by(trainer_id=trainer_id)
+
+        # Search filter
+        if 'search' in validated_query:
+            search_term = f"%{validated_query['search']}%"
+            query = query.filter(Workout.name.ilike(search_term))
+
+        # Category filter
+        if 'category' in validated_query:
+            query = query.filter_by(category=validated_query['category'])
+
+        # Difficulty filter
+        if 'difficulty' in validated_query:
+            query = query.filter_by(difficulty=validated_query['difficulty'])
+
+        # Pagination
+        page = validated_query['page']
+        per_page = validated_query['per_page']
+
+        paginated = query.order_by(Workout.created_at.desc()).paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
 
         return jsonify({
             'success': True,
-            'data': [workout.to_dict(include_exercises=True) for workout in workouts]
+            'data': [workout.to_dict(include_exercises=True) for workout in paginated.items],
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': paginated.total,
+                'pages': paginated.pages,
+                'has_next': paginated.has_next,
+                'has_prev': paginated.has_prev
+            }
         }), 200
 
     except Exception as e:

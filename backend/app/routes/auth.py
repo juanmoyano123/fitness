@@ -10,7 +10,7 @@ from flask_jwt_extended import (
     get_jwt
 )
 from datetime import timedelta
-from app import db
+from app import db, limiter
 from app.models import Trainer, Client
 from app.utils.validation_helpers import validate_json
 from app.schemas import TrainerRegisterSchema, LoginSchema, ClientRegisterSchema
@@ -19,6 +19,7 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 
 @auth_bp.route('/register', methods=['POST'])
+@limiter.limit("3 per hour")
 @validate_json(TrainerRegisterSchema)
 def register(validated_data):
     """
@@ -86,6 +87,7 @@ def register(validated_data):
 
 
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")
 @validate_json(LoginSchema)
 def login(validated_data):
     """
@@ -215,6 +217,7 @@ def get_current_user():
 
 
 @auth_bp.route('/register-client', methods=['POST'])
+@limiter.limit("3 per hour")
 @validate_json(ClientRegisterSchema)
 def register_client(validated_data):
     """

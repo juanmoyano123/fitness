@@ -5,6 +5,8 @@ from flask import Flask
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import os
 
@@ -14,6 +16,11 @@ load_dotenv()
 # Initialize extensions
 db = SQLAlchemy()
 jwt = JWTManager()
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"  # Use Redis in production: os.getenv('REDIS_URL', 'memory://')
+)
 
 def create_app():
     """Application factory pattern"""
@@ -28,6 +35,7 @@ def create_app():
     # Initialize extensions with app
     db.init_app(app)
     jwt.init_app(app)
+    limiter.init_app(app)
 
     # CORS configuration
     CORS(app, origins=os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(','))
