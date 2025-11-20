@@ -7,18 +7,24 @@ from datetime import datetime
 from app import db
 from app.models import Client, Trainer
 from app.utils.auth_helpers import require_trainer, verify_resource_ownership
+from app.utils.validation_helpers import validate_json, validate_query
+from app.schemas import ClientCreateSchema, ClientUpdateSchema, ClientQuerySchema
 
 clients_bp = Blueprint('clients', __name__, url_prefix='/api/clients')
 
 
 @clients_bp.route('', methods=['GET'])
 @jwt_required()
-def get_clients():
+@validate_query(ClientQuerySchema)
+def get_clients(validated_query):
     """
-    Get all clients for the authenticated trainer
+    Get all clients for the authenticated trainer with pagination
 
     Query params:
     - active: true/false (filter by is_active status)
+    - page: page number (default: 1)
+    - per_page: items per page (default: 20, max: 100)
+    - search: search by name or email
     """
     error_response = require_trainer()
     if error_response:
@@ -26,19 +32,44 @@ def get_clients():
 
     try:
         trainer_id = get_jwt_identity()
+
+        # Base query
         query = Client.query.filter_by(trainer_id=trainer_id)
 
-        # Filter by active status if specified
-        active_filter = request.args.get('active')
-        if active_filter is not None:
-            is_active = active_filter.lower() == 'true'
+        # Filter by active status
+        if 'active' in validated_query:
+            is_active = validated_query['active'].lower() == 'true'
             query = query.filter_by(is_active=is_active)
 
-        clients = query.all()
+        # Search filter
+        if 'search' in validated_query:
+            search_term = f"%{validated_query['search']}%"
+            query = query.filter(
+                (Client.name.ilike(search_term)) |
+                (Client.email.ilike(search_term))
+            )
+
+        # Pagination
+        page = validated_query['page']
+        per_page = validated_query['per_page']
+
+        paginated = query.order_by(Client.name).paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
 
         return jsonify({
             'success': True,
-            'data': [client.to_dict(include_stats=True) for client in clients]
+            'data': [client.to_dict(include_stats=True) for client in paginated.items],
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': paginated.total,
+                'pages': paginated.pages,
+                'has_next': paginated.has_next,
+                'has_prev': paginated.has_prev
+            }
         }), 200
 
     except Exception as e:
@@ -80,7 +111,8 @@ def get_client(client_id):
 
 @clients_bp.route('', methods=['POST'])
 @jwt_required()
-def create_client():
+@validate_json(ClientCreateSchema)
+def create_client(validated_data):
     """
     Create a new client
 
@@ -98,16 +130,9 @@ def create_client():
 
     try:
         trainer_id = get_jwt_identity()
-        data = request.get_json()
 
-        if not data or not data.get('email') or not data.get('name'):
-            return jsonify({
-                'success': False,
-                'error': 'Email and name are required'
-            }), 400
-
-        email = data['email'].lower().strip()
-        name = data['name'].strip()
+        email = validated_data['email'].lower()
+        name = validated_data['name']
 
         # Check if client email already exists
         existing_client = Client.query.filter_by(email=email).first()
@@ -122,13 +147,13 @@ def create_client():
             email=email,
             name=name,
             trainer_id=trainer_id,
-            phone=data.get('phone'),
-            notes=data.get('notes'),
+            phone=validated_data.get('phone'),
+            notes=validated_data.get('notes'),
             is_active=True,
-            gender=data.get('gender'),  # FASE 1 compatibility
-            age=data.get('age'),  # FASE 1 compatibility
-            goals=data.get('goals'),  # FASE 1 compatibility
-            avatar_url=data.get('avatar') or data.get('avatar_url')  # Accept both field names
+            gender=validated_data.get('gender'),
+            age=validated_data.get('age'),
+            goals=validated_data.get('goals'),
+            avatar_url=validated_data.get('avatar_url') or validated_data.get('avatar')
         )
 
         db.session.add(client)
@@ -150,7 +175,8 @@ def create_client():
 
 @clients_bp.route('/<int:client_id>', methods=['PUT'])
 @jwt_required()
-def update_client(client_id):
+@validate_json(ClientUpdateSchema)
+def update_client(client_id, validated_data):
     """
     Update a client
 
@@ -176,30 +202,23 @@ def update_client(client_id):
                 'error': 'Client not found'
             }), 404
 
-        data = request.get_json()
-        if not data:
-            return jsonify({
-                'success': False,
-                'error': 'No data provided'
-            }), 400
-
         # Update fields (compatible with FASE 1 frontend)
-        if 'name' in data:
-            client.name = data['name'].strip()
-        if 'phone' in data:
-            client.phone = data['phone']
-        if 'notes' in data:
-            client.notes = data['notes']
-        if 'is_active' in data:
-            client.is_active = data['is_active']
-        if 'gender' in data:
-            client.gender = data['gender']
-        if 'age' in data:
-            client.age = data['age']
-        if 'goals' in data:
-            client.goals = data['goals']
-        if 'avatar' in data or 'avatar_url' in data:
-            client.avatar_url = data.get('avatar') or data.get('avatar_url')
+        if 'name' in validated_data:
+            client.name = validated_data['name']
+        if 'phone' in validated_data:
+            client.phone = validated_data['phone']
+        if 'notes' in validated_data:
+            client.notes = validated_data['notes']
+        if 'is_active' in validated_data:
+            client.is_active = validated_data['is_active']
+        if 'gender' in validated_data:
+            client.gender = validated_data['gender']
+        if 'age' in validated_data:
+            client.age = validated_data['age']
+        if 'goals' in validated_data:
+            client.goals = validated_data['goals']
+        if 'avatar' in validated_data or 'avatar_url' in validated_data:
+            client.avatar_url = validated_data.get('avatar') or validated_data.get('avatar_url')
 
         db.session.commit()
 

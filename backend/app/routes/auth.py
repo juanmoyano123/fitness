@@ -12,12 +12,15 @@ from flask_jwt_extended import (
 from datetime import timedelta
 from app import db
 from app.models import Trainer, Client
+from app.utils.validation_helpers import validate_json
+from app.schemas import TrainerRegisterSchema, LoginSchema, ClientRegisterSchema
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 
 @auth_bp.route('/register', methods=['POST'])
-def register():
+@validate_json(TrainerRegisterSchema)
+def register(validated_data):
     """
     Register a new trainer account
 
@@ -30,19 +33,10 @@ def register():
     }
     """
     try:
-        data = request.get_json()
-
-        # Validate required fields
-        if not data or not data.get('email') or not data.get('password') or not data.get('name'):
-            return jsonify({
-                'success': False,
-                'error': 'Email, password, and name are required'
-            }), 400
-
-        email = data['email'].lower().strip()
-        password = data['password']
-        name = data['name'].strip()
-        business_name = data.get('business_name', '').strip()
+        email = validated_data['email'].lower()
+        password = validated_data['password']
+        name = validated_data['name']
+        business_name = validated_data.get('business_name')
 
         # Check if email already exists
         existing_trainer = Trainer.query.filter_by(email=email).first()
@@ -56,7 +50,7 @@ def register():
         trainer = Trainer(
             email=email,
             name=name,
-            business_name=business_name if business_name else None
+            business_name=business_name
         )
         trainer.set_password(password)
 
@@ -92,7 +86,8 @@ def register():
 
 
 @auth_bp.route('/login', methods=['POST'])
-def login():
+@validate_json(LoginSchema)
+def login(validated_data):
     """
     Login with email and password
 
@@ -104,17 +99,9 @@ def login():
     }
     """
     try:
-        data = request.get_json()
-
-        if not data or not data.get('email') or not data.get('password'):
-            return jsonify({
-                'success': False,
-                'error': 'Email and password are required'
-            }), 400
-
-        email = data['email'].lower().strip()
-        password = data['password']
-        user_type = data.get('user_type', 'trainer')
+        email = validated_data['email'].lower()
+        password = validated_data['password']
+        user_type = validated_data['user_type']
 
         # Find user based on type
         if user_type == 'client':
@@ -228,7 +215,8 @@ def get_current_user():
 
 
 @auth_bp.route('/register-client', methods=['POST'])
-def register_client():
+@validate_json(ClientRegisterSchema)
+def register_client(validated_data):
     """
     Register a new client account (used with invite token)
 
@@ -241,18 +229,10 @@ def register_client():
     }
     """
     try:
-        data = request.get_json()
-
-        if not data or not data.get('email') or not data.get('password') or not data.get('name'):
-            return jsonify({
-                'success': False,
-                'error': 'Email, password, and name are required'
-            }), 400
-
-        email = data['email'].lower().strip()
-        password = data['password']
-        name = data['name'].strip()
-        invite_token = data.get('invite_token')
+        email = validated_data['email'].lower()
+        password = validated_data['password']
+        name = validated_data['name']
+        invite_token = validated_data.get('invite_token')
 
         # Check if email already exists
         existing_client = Client.query.filter_by(email=email).first()
