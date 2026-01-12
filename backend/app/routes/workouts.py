@@ -105,13 +105,18 @@ def create_workout():
             }), 400
 
         # Create workout (compatible with FASE 1 & 2 frontend)
+        # Handle scheduledDays: convert array [0,2,4] to string "0,2,4"
+        scheduled_days = data.get('scheduledDays', [])
+        scheduled_days_str = ','.join(str(d) for d in scheduled_days) if scheduled_days else None
+
         workout = Workout(
             name=data['name'],
             description=data.get('description', ''),
             trainer_id=trainer_id,
             category=data.get('category'),  # FASE 1 compatibility
             difficulty=data.get('difficulty'),  # FASE 1 compatibility
-            duration=data.get('duration')  # FASE 1 compatibility
+            duration=data.get('duration'),  # FASE 1 compatibility
+            scheduled_days=scheduled_days_str
         )
 
         db.session.add(workout)
@@ -184,6 +189,9 @@ def update_workout(workout_id):
             workout.difficulty = data['difficulty']
         if 'duration' in data:
             workout.duration = data['duration']
+        if 'scheduledDays' in data:
+            scheduled_days = data['scheduledDays']
+            workout.scheduled_days = ','.join(str(d) for d in scheduled_days) if scheduled_days else None
 
         db.session.commit()
 
@@ -275,13 +283,18 @@ def create_assignment():
                 'error': 'Workout or client not found'
             }), 404
 
+        # Handle scheduledDays for assignment (optional - overrides workout default)
+        scheduled_days = data.get('scheduledDays', [])
+        scheduled_days_str = ','.join(str(d) for d in scheduled_days) if scheduled_days else None
+
         # Create assignment
         assignment = WorkoutAssignment(
             workout_id=data['workout_id'],
             client_id=data['client_id'],
             trainer_id=trainer_id,
             due_date=datetime.fromisoformat(data['due_date'].replace('Z', '+00:00')) if data.get('due_date') else None,
-            notes=data.get('notes')
+            notes=data.get('notes'),
+            scheduled_days=scheduled_days_str
         )
 
         db.session.add(assignment)

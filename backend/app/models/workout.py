@@ -19,6 +19,9 @@ class Workout(db.Model):
     difficulty = db.Column(db.String(20))  # "beginner" | "intermediate" | "advanced"
     duration = db.Column(db.Integer)  # minutes
 
+    # Scheduled days of the week (optional) - stored as comma-separated: "0,2,4" where 0=Mon, 6=Sun
+    scheduled_days = db.Column(db.String(50), nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -38,6 +41,7 @@ class Workout(db.Model):
             'category': self.category,
             'difficulty': self.difficulty,
             'duration': self.duration,
+            'scheduledDays': [int(d) for d in self.scheduled_days.split(',')] if self.scheduled_days else [],
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'createdAt': self.created_at.isoformat() if self.created_at else None,  # FASE 1 compatibility
             'createdBy': f'trainer-{self.trainer_id}',  # FASE 1 compatibility

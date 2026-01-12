@@ -31,6 +31,9 @@ class WorkoutAssignment(db.Model):
     # Notes from trainer
     notes = db.Column(db.Text)
 
+    # Scheduled days - if null, inherits from workout. Format: "0,2,4" where 0=Mon, 6=Sun
+    scheduled_days = db.Column(db.String(50), nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -43,6 +46,11 @@ class WorkoutAssignment(db.Model):
 
     def to_dict(self, include_workout=True):
         """Convert assignment to dictionary representation"""
+        # Get scheduled days - use own value or inherit from workout
+        days = self.scheduled_days
+        if days is None and self.workout:
+            days = self.workout.scheduled_days
+
         data = {
             'id': self.id,
             'workout_id': self.workout_id,
@@ -54,6 +62,8 @@ class WorkoutAssignment(db.Model):
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'notes': self.notes,
+            'scheduledDays': [int(d) for d in days.split(',')] if days else [],
+            'scheduledDaysCustom': self.scheduled_days is not None,  # True if client has custom days
         }
 
         if include_workout and self.workout:

@@ -102,9 +102,9 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const token = this.getToken();
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     if (token) {
@@ -248,17 +248,18 @@ class ApiClient {
   /**
    * Get all clients for the authenticated trainer
    */
-  async getClients(params?: { active?: boolean }): Promise<ApiResponse> {
+  async getClients(params?: { active?: boolean }): Promise<Client[]> {
     const queryString = params
       ? '?' + new URLSearchParams(params as any).toString()
       : '';
-    return this.request(`/api/clients${queryString}`);
+    const response = await this.request<Client[]>(`/api/clients${queryString}`);
+    return response.data || response as any;
   }
 
   /**
    * Get a specific client
    */
-  async getClient(clientId: number): Promise<ApiResponse> {
+  async getClient(clientId: number | string): Promise<ApiResponse> {
     return this.request(`/api/clients/${clientId}`);
   }
 
@@ -270,35 +271,43 @@ class ApiClient {
     name: string;
     phone?: string;
     notes?: string;
-  }): Promise<ApiResponse> {
-    return this.request('/api/clients', {
+    gender?: 'male' | 'female' | 'other';
+    age?: number;
+    goals?: string;
+  }): Promise<Client> {
+    const response = await this.request<Client>('/api/clients', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return response.data || response as any;
   }
 
   /**
    * Update a client
    */
   async updateClient(
-    clientId: number,
+    clientId: number | string,
     data: {
       name?: string;
       phone?: string;
       notes?: string;
       is_active?: boolean;
+      gender?: 'male' | 'female' | 'other';
+      age?: number;
+      goals?: string;
     }
-  ): Promise<ApiResponse> {
-    return this.request(`/api/clients/${clientId}`, {
+  ): Promise<Client> {
+    const response = await this.request<Client>(`/api/clients/${clientId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+    return response.data || response as any;
   }
 
   /**
    * Delete a client
    */
-  async deleteClient(clientId: number): Promise<ApiResponse> {
+  async deleteClient(clientId: number | string): Promise<ApiResponse> {
     return this.request(`/api/clients/${clientId}`, {
       method: 'DELETE',
     });
@@ -307,7 +316,7 @@ class ApiClient {
   /**
    * Send invitation to a client
    */
-  async inviteClient(clientId: number): Promise<ApiResponse> {
+  async inviteClient(clientId: number | string): Promise<ApiResponse> {
     return this.request(`/api/clients/${clientId}/invite`, {
       method: 'POST',
       body: JSON.stringify({}),
@@ -331,8 +340,318 @@ class ApiClient {
     }
     return null;
   }
+
+  // ==================== EXERCISE ENDPOINTS (F-030, F-031, F-032) ====================
+
+  /**
+   * Get exercises with filters
+   */
+  async getExercises(params?: ExerciseFilters): Promise<Exercise[]> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.bodyPart) queryParams.append('bodyPart', params.bodyPart);
+    if (params?.target) queryParams.append('target', params.target);
+    if (params?.equipment) queryParams.append('equipment', params.equipment);
+    if (params?.custom_only) queryParams.append('custom_only', 'true');
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `/api/exercises?${queryString}` : '/api/exercises';
+
+    const response = await this.request<Exercise[]>(endpoint);
+    return response.data || response as any;
+  }
+
+  /**
+   * Get exercise filters metadata (body parts, targets, equipment)
+   */
+  async getExerciseFilters(): Promise<ExerciseFiltersMetadata> {
+    const response = await this.request<ExerciseFiltersMetadata>('/api/exercises/filters');
+    return response.data || response as any;
+  }
+
+  /**
+   * Sync exercises from ExerciseDB API
+   */
+  async syncExercises(limit?: number): Promise<SyncStats> {
+    const endpoint = limit ? `/api/exercises/sync?limit=${limit}` : '/api/exercises/sync';
+    const response = await this.request<{ stats: SyncStats }>(endpoint, {
+      method: 'POST',
+    });
+    return response.data?.stats || (response as any).stats;
+  }
+
+  /**
+   * Create a custom exercise
+   */
+  async createCustomExercise(data: CreateExerciseData): Promise<Exercise> {
+    const response = await this.request<Exercise>('/api/exercises/custom', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response.data || response as any;
+  }
+
+  /**
+   * Update a custom exercise
+   */
+  async updateCustomExercise(exerciseId: string, data: Partial<CreateExerciseData>): Promise<Exercise> {
+    const response = await this.request<Exercise>(`/api/exercises/custom/${exerciseId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+    return response.data || response as any;
+  }
+
+  /**
+   * Delete a custom exercise
+   */
+  async deleteCustomExercise(exerciseId: string): Promise<void> {
+    await this.request(`/api/exercises/custom/${exerciseId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Get a specific exercise by ID
+   */
+  async getExercise(exerciseId: string): Promise<Exercise> {
+    const response = await this.request<Exercise>(`/api/exercises/${exerciseId}`);
+    return response.data || response as any;
+  }
+
+  // ==================== WORKOUT ENDPOINTS ====================
+
+  /**
+   * Get all workouts for the authenticated trainer
+   */
+  async getWorkouts(): Promise<ApiResponse> {
+    return this.request('/api/workouts');
+  }
+
+  /**
+   * Create a new workout
+   */
+  async createWorkout(data: CreateWorkoutInput): Promise<ApiResponse> {
+    // Convert frontend format to backend format
+    const backendData = {
+      name: data.name,
+      description: data.description,
+      category: data.category,
+      difficulty: data.difficulty,
+      duration: data.durationMinutes,
+      scheduledDays: data.scheduledDays,
+      exercises: data.exercises.map((ex, index) => ({
+        exercise_id: ex.exerciseId,
+        order: index + 1,
+        sets: ex.sets,
+        reps: ex.reps,
+        rest_seconds: ex.restSeconds,
+        notes: ex.notes,
+      })),
+    };
+
+    return this.request('/api/workouts', {
+      method: 'POST',
+      body: JSON.stringify(backendData),
+    });
+  }
+
+  /**
+   * Assign a workout to a client
+   */
+  async assignWorkout(data: {
+    workout_id: number;
+    client_id: number;
+    scheduled_date?: string;
+    notes?: string;
+  }): Promise<ApiResponse> {
+    return this.request('/api/assignments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Assign a workout to multiple clients
+   */
+  async assignWorkoutToClients(workoutId: number, clientIds: string[], notes?: string): Promise<ApiResponse[]> {
+    const assignments = await Promise.all(
+      clientIds.map((clientId) =>
+        this.assignWorkout({
+          workout_id: workoutId,
+          client_id: parseInt(clientId),
+          notes,
+        })
+      )
+    );
+    return assignments;
+  }
+}
+
+// ==================== TYPE DEFINITIONS ====================
+
+export interface Exercise {
+  id: string;
+  externalId?: string;
+  name: string;
+  bodyPart: string;
+  equipment: string;
+  target: string;
+  gifUrl?: string;
+  videoUrl?: string;
+  instructions?: string[];
+  isCustom: boolean;
+  trainerId?: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  notes?: string;
+  status: string;
+  is_active?: boolean;
+  created_at?: string;
+  createdAt?: string;
+  gender?: 'male' | 'female' | 'other';
+  age?: number;
+  goals?: string;
+  adherence?: number;
+  lastActivity?: string;
+  workoutsCompleted?: number;
+  workoutsAssigned?: number;
+}
+
+export interface CreateClientInput {
+  email: string;
+  name: string;
+  phone?: string;
+  notes?: string;
+  gender?: 'male' | 'female' | 'other';
+  age?: number;
+  goals?: string;
+}
+
+export interface WorkoutExercise {
+  exerciseId: string;
+  sets: number;
+  reps: string;
+  restSeconds: number;
+  notes?: string;
+}
+
+export interface CreateWorkoutInput {
+  name: string;
+  description?: string;
+  category?: string;
+  difficulty?: string;
+  durationMinutes?: number;
+  scheduledDays?: number[];
+  exercises: WorkoutExercise[];
+}
+
+export interface ExerciseFilters {
+  search?: string;
+  bodyPart?: string;
+  target?: string;
+  equipment?: string;
+  custom_only?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ExerciseFiltersMetadata {
+  bodyParts: string[];
+  targets: string[];
+  equipment: string[];
+}
+
+export interface SyncStats {
+  synced: number;
+  updated: number;
+  errors: number;
+  total: number;
+}
+
+export interface CreateExerciseData {
+  name: string;
+  bodyPart: string;
+  equipment: string;
+  target?: string;
+  gifUrl?: string;
+  videoUrl?: string;
+  instructions?: string[];
 }
 
 // Export singleton instance
 export const api = new ApiClient();
 export default api;
+
+// Export convenience functions
+
+// Exercises
+export const fetchExercises = (filters?: ExerciseFilters) => api.getExercises(filters);
+export const fetchExerciseFilters = () => api.getExerciseFilters();
+export const syncExercises = (limit?: number) => api.syncExercises(limit);
+export const createCustomExercise = (data: CreateExerciseData) => api.createCustomExercise(data);
+export const updateCustomExercise = (id: string, data: Partial<CreateExerciseData>) => api.updateCustomExercise(id, data);
+export const deleteCustomExercise = (id: string) => api.deleteCustomExercise(id);
+
+// Clients
+export const fetchClients = (params?: { active?: boolean }) => api.getClients(params);
+export const fetchClient = (clientId: number | string) => api.getClient(clientId);
+export const createClient = (data: CreateClientInput) => api.createClient(data);
+export const updateClient = (clientId: number | string, data: Partial<CreateClientInput> & { is_active?: boolean }) => api.updateClient(clientId, data);
+export const deleteClient = (clientId: number | string) => api.deleteClient(clientId);
+export const inviteClient = (clientId: number | string) => api.inviteClient(clientId);
+
+// Workouts
+export const createWorkout = (data: CreateWorkoutInput) => api.createWorkout(data);
+export const assignWorkout = (data: { workout_id: number; client_id: number; scheduled_date?: string; notes?: string }) => api.assignWorkout(data);
+export const assignWorkoutToClients = (workoutId: number, clientIds: string[], notes?: string) => api.assignWorkoutToClients(workoutId, clientIds, notes);
+
+// ==================== ANALYTICS TYPES AND FUNCTIONS ====================
+
+export interface ClientAdherence {
+  clientId: string;
+  name: string;
+  adherence: number;
+  workoutsCompleted: number;
+  workoutsAssigned: number;
+}
+
+export interface WeeklyActivity {
+  date: string;
+  completed: number;
+}
+
+export interface AnalyticsData {
+  totalClients: number;
+  activeClients: number;
+  avgAdherence: number;
+  workoutsThisWeek: number;
+  clientsAdherence: ClientAdherence[];
+  weeklyActivity: WeeklyActivity[];
+}
+
+export const fetchTrainerAnalytics = async (timeRange: 'week' | 'month' | 'quarter' | 'year' = 'week'): Promise<AnalyticsData> => {
+  try {
+    const response = await api['request']<AnalyticsData>(`/api/analytics?time_range=${timeRange}`);
+    return response.data || response as any;
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    // Return empty data structure on error
+    return {
+      totalClients: 0,
+      activeClients: 0,
+      avgAdherence: 0,
+      workoutsThisWeek: 0,
+      clientsAdherence: [],
+      weeklyActivity: [],
+    };
+  }
+};
