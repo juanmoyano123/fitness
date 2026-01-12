@@ -17,7 +17,10 @@ class Workout(db.Model):
     # Additional fields for frontend compatibility (FASE 1 & 2)
     category = db.Column(db.String(50))  # "strength" | "cardio" | "hybrid" | "flexibility"
     difficulty = db.Column(db.String(20))  # "beginner" | "intermediate" | "advanced"
-    duration = db.Column(db.Integer)  # minutes
+    duration = db.Column(db.Integer)  # minutes (duration of ONE workout session)
+
+    # Program duration in weeks (for calculating expected sessions and metrics)
+    program_duration_weeks = db.Column(db.Integer, nullable=True, comment="Duration of the program in weeks (e.g., 8 weeks)")
 
     # Scheduled days of the week (optional) - stored as comma-separated: "0,2,4" where 0=Mon, 6=Sun
     scheduled_days = db.Column(db.String(50), nullable=True)
@@ -41,6 +44,7 @@ class Workout(db.Model):
             'category': self.category,
             'difficulty': self.difficulty,
             'duration': self.duration,
+            'programDurationWeeks': self.program_duration_weeks,  # NEW: program duration in weeks
             'scheduledDays': [int(d) for d in self.scheduled_days.split(',')] if self.scheduled_days else [],
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'createdAt': self.created_at.isoformat() if self.created_at else None,  # FASE 1 compatibility

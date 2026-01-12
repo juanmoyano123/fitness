@@ -116,6 +116,7 @@ def create_workout():
             category=data.get('category'),  # FASE 1 compatibility
             difficulty=data.get('difficulty'),  # FASE 1 compatibility
             duration=data.get('duration'),  # FASE 1 compatibility
+            program_duration_weeks=data.get('programDurationWeeks'),  # NEW: Program duration
             scheduled_days=scheduled_days_str
         )
 
@@ -189,6 +190,8 @@ def update_workout(workout_id):
             workout.difficulty = data['difficulty']
         if 'duration' in data:
             workout.duration = data['duration']
+        if 'programDurationWeeks' in data:  # NEW: Update program duration
+            workout.program_duration_weeks = data['programDurationWeeks']
         if 'scheduledDays' in data:
             scheduled_days = data['scheduledDays']
             workout.scheduled_days = ','.join(str(d) for d in scheduled_days) if scheduled_days else None
@@ -294,10 +297,16 @@ def create_assignment():
             trainer_id=trainer_id,
             due_date=datetime.fromisoformat(data['due_date'].replace('Z', '+00:00')) if data.get('due_date') else None,
             notes=data.get('notes'),
-            scheduled_days=scheduled_days_str
+            scheduled_days=scheduled_days_str,
+            start_date=datetime.utcnow()  # NEW: Set start date for program tracking
         )
 
         db.session.add(assignment)
+        db.session.flush()  # Get assignment ID and load relationships
+
+        # NEW: Calculate program metrics (end_date, expected_sessions)
+        assignment.calculate_program_metrics()
+
         db.session.commit()
 
         return jsonify({

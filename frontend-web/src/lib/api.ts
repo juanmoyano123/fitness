@@ -442,6 +442,7 @@ class ApiClient {
       category: data.category,
       difficulty: data.difficulty,
       duration: data.durationMinutes,
+      programDurationWeeks: data.programDurationWeeks,  // NEW: Program duration
       scheduledDays: data.scheduledDays,
       exercises: data.exercises.map((ex, index) => ({
         exercise_id: ex.exerciseId,
@@ -488,6 +489,14 @@ class ApiClient {
       )
     );
     return assignments;
+  }
+
+  /**
+   * Get all workout assignments for a specific client
+   */
+  async getClientAssignments(clientId: string | number): Promise<any[]> {
+    const response = await this.request<any[]>(`/api/assignments/client/${clientId}`);
+    return response.data || [];
   }
 }
 
@@ -550,6 +559,7 @@ export interface CreateWorkoutInput {
   category?: string;
   difficulty?: string;
   durationMinutes?: number;
+  programDurationWeeks?: number;  // NEW: Program duration in weeks
   scheduledDays?: number[];
   exercises: WorkoutExercise[];
 }
@@ -587,6 +597,38 @@ export interface CreateExerciseData {
   instructions?: string[];
 }
 
+export interface WorkoutAssignment {
+  id: number;
+  workout_id: number;
+  client_id: number;
+  trainer_id: number;
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  assigned_date: string;
+  due_date?: string;
+  started_at?: string;
+  completed_at?: string;
+  notes?: string;
+  scheduledDays?: number[];
+  scheduledDaysCustom?: boolean;
+  // NEW: Program period tracking
+  startDate?: string;
+  endDate?: string;
+  expectedSessions?: number;
+  adherencePercentage?: number | null;
+  timeProgressPercentage?: number | null;
+  workout?: {
+    id: number;
+    name: string;
+    description?: string;
+    category?: string;
+    difficulty?: string;
+    duration?: number;
+    programDurationWeeks?: number;  // NEW
+    exerciseCount?: number;
+    exercises?: any[];
+  };
+}
+
 // Export singleton instance
 export const api = new ApiClient();
 export default api;
@@ -613,6 +655,9 @@ export const inviteClient = (clientId: number | string) => api.inviteClient(clie
 export const createWorkout = (data: CreateWorkoutInput) => api.createWorkout(data);
 export const assignWorkout = (data: { workout_id: number; client_id: number; scheduled_date?: string; notes?: string }) => api.assignWorkout(data);
 export const assignWorkoutToClients = (workoutId: number, clientIds: string[], notes?: string) => api.assignWorkoutToClients(workoutId, clientIds, notes);
+
+// Assignments
+export const fetchClientAssignments = (clientId: string | number) => api.getClientAssignments(clientId);
 
 // ==================== ANALYTICS TYPES AND FUNCTIONS ====================
 

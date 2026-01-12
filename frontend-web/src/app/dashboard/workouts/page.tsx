@@ -36,7 +36,7 @@ import {
   Link2,
   X,
 } from "lucide-react";
-import { ExerciseFilters } from "@/components/exercises/exercise-filters";
+import { SimpleExerciseFilters } from "@/components/exercises/simple-exercise-filters";
 import { DaySelector } from "@/components/ui/day-selector";
 import Image from "next/image";
 
@@ -60,6 +60,7 @@ export default function WorkoutsPage() {
   const [workoutDescription, setWorkoutDescription] = useState("");
   const [workoutCategory, setWorkoutCategory] = useState<string>("strength");
   const [workoutDifficulty, setWorkoutDifficulty] = useState<string>("intermediate");
+  const [programDurationWeeks, setProgramDurationWeeks] = useState<number>(8); // NEW: Default 8 weeks
   const [scheduledDays, setScheduledDays] = useState<number[]>([]);
   const [workoutItems, setWorkoutItems] = useState<WorkoutItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -252,6 +253,7 @@ export default function WorkoutsPage() {
         category: workoutCategory || undefined,
         difficulty: workoutDifficulty || undefined,
         durationMinutes: Math.round(estimatedDuration) || undefined,
+        programDurationWeeks: programDurationWeeks || undefined,  // NEW: Program duration
         scheduledDays: scheduledDays.length > 0 ? scheduledDays : undefined,
         exercises: flatExercises,
       };
@@ -274,6 +276,7 @@ export default function WorkoutsPage() {
       // Reset form
       setWorkoutName("");
       setWorkoutDescription("");
+      setProgramDurationWeeks(8);  // NEW: Reset to default
       setScheduledDays([]);
       setWorkoutItems([]);
       setSelectedClients([]);
@@ -374,7 +377,7 @@ export default function WorkoutsPage() {
                 </div>
 
                 {/* Filters */}
-                <ExerciseFilters
+                <SimpleExerciseFilters
                   bodyPart={bodyPartFilter}
                   target={targetFilter}
                   equipment={equipmentFilter}
@@ -517,6 +520,43 @@ export default function WorkoutsPage() {
                         {Math.round(estimatedDuration)} min
                       </span>
                     </div>
+                  </div>
+                </div>
+
+                {/* NEW: Program Duration */}
+                <div className="space-y-2">
+                  <Label htmlFor="program-duration">Duración del Programa</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Define cuántas semanas durará este programa de entrenamiento
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select
+                      value={programDurationWeeks.toString()}
+                      onValueChange={(val) => setProgramDurationWeeks(parseInt(val))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4 semanas</SelectItem>
+                        <SelectItem value="6">6 semanas</SelectItem>
+                        <SelectItem value="8">8 semanas</SelectItem>
+                        <SelectItem value="10">10 semanas</SelectItem>
+                        <SelectItem value="12">12 semanas</SelectItem>
+                        <SelectItem value="16">16 semanas</SelectItem>
+                        <SelectItem value="20">20 semanas</SelectItem>
+                        <SelectItem value="24">24 semanas (6 meses)</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Dynamic calculation display */}
+                    {scheduledDays.length > 0 && programDurationWeeks > 0 && (
+                      <div className="h-10 px-3 py-2 rounded-md border bg-muted flex items-center">
+                        <span className="text-sm font-medium">
+                          {scheduledDays.length} días/sem × {programDurationWeeks} sem = {scheduledDays.length * programDurationWeeks} sesiones
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -758,6 +798,7 @@ export default function WorkoutsPage() {
                 onClick={() => {
                   setWorkoutName("");
                   setWorkoutDescription("");
+                  setProgramDurationWeeks(8);  // NEW: Reset to default
                   setScheduledDays([]);
                   setWorkoutItems([]);
                   setSelectedClients([]);
